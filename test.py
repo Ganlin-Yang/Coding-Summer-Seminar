@@ -17,7 +17,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 @torch.no_grad()
-def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorized', scales_precision=1):
+def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorized'):
     # load data
     start_time = time.time()
 
@@ -35,7 +35,6 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
     
     tag=1
     lmbda=[0.0067,0.013,0.025,0.0483]
-    # lmbda=[120,130,140,150,160,170,180,189]
     all_result=[]
     for i in range(len(ckptdir_list)):
         all_result.append({})
@@ -89,7 +88,6 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
             print('load checkpoint from \t', ckptdir)
             # 解决多卡训练出来的模型checkpoint的key都自动加上了'module'
             model.load_state_dict({k.replace('module.',''):v for k,v in ckpt['model'].items()})
-            # model.load_state_dict(ckpt['model'])
             coder = Coder(model=model, filename=filename)
 
             # postfix: lmbda index
@@ -113,7 +111,7 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
                 postfix_list = ['_F.bin','_H.bin']
             elif args.model_name == "CheckerboardAutogressive":
                 postfix_list = ['_Fanchor.bin', '_Fnon_anchor.bin', '_Fz.bin', '_H.bin']
-            elif args.model_name == "Hyperprior":
+            else:
                 postfix_list = ['_Fy.bin','_Fz.bin', '_H.bin']
 
             bits = np.array([os.path.getsize(filename + postfix_idx + postfix)*8 \
@@ -123,7 +121,6 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
             print('num_pixel:',num_pixel)
             print('bits:\t', sum(bits), '\nbpps:\t',  sum(bpps).round(3))
 
-            # distortion
             #重建图片
             start_time = time.time()
             # print(x_dec.detach().cpu().numpy().squeeze().shape)
@@ -187,34 +184,9 @@ if __name__ == '__main__':
                     './ckpts/'+args.model_name+'/epoch_'+ str(args.load_model_epoch) + '_lmbda_0.025' + '.pth',
                     './ckpts/'+args.model_name+'/epoch_'+ str(args.load_model_epoch) + '_lmbda_0.0483' + '.pth']
 
-    # ckptdir_list = ['./ckpts/'+args.model_name+'/epoch_198' + '.pth', 
-    #                 './ckpts/'+args.model_name+'/epoch_199' + '.pth',
-    #                 './ckpts/'+args.model_name+'/epoch_152' + '.pth',
-    #                 './ckpts/'+args.model_name+'/epoch_154' + '.pth']
-
-    # ckptdir_list = ['./ckpts/'+args.model_name+'/epoch_119' + '.pth', 
-    #                 './ckpts/'+args.model_name+'/epoch_129' + '.pth',
-    #                 './ckpts/'+args.model_name+'/epoch_139' + '.pth', 
-    #                 './ckpts/'+args.model_name+'/epoch_149' + '.pth',
-    #                 './ckpts/'+args.model_name+'/epoch_159' + '.pth', 
-    #                 './ckpts/'+args.model_name+'/epoch_169' + '.pth',
-    #                 './ckpts/'+args.model_name+'/epoch_179' + '.pth',
-    #                 './ckpts/'+args.model_name+'/epoch_188' + '.pth']
-                    
-    # ckptdir_list = ['./ckpts/'+args.model_name+'/epoch_119' + '.pth', 
-    #                 './ckpts/'+args.model_name+'/epoch_129' + '.pth',
-    #                 './ckpts/'+args.model_name+'/epoch_139' + '.pth',
-    #                 './ckpts/'+args.model_name+'/epoch_149' + '.pth', 
-    #                 './ckpts/'+args.model_name+'/epoch_155' + '.pth']
-    # if(args.model_name=="hyperprior"):
-    #     ckptdir_list.append('./ckpts/'+args.model_name+'/epoch_'+ str(args.load_model_epoch) + '_lmbda_0.0483_N=128' + '.pth')
-
     test_transforms = transforms.Compose(
         [transforms.ToTensor()]
     )
-    # test_transforms = transforms.Compose(
-    #     [transforms.CenterCrop(256), transforms.ToTensor()]
-    # )
 
     test_dataset = KodakDataset(args.dataset_path, test_transforms) 
     samplerC = SequentialSampler(test_dataset)
@@ -242,6 +214,5 @@ if __name__ == '__main__':
 
 
     plot_RDCurve()
-    #para_num()
 
 
