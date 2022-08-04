@@ -99,6 +99,7 @@ def jpeg_test(jpeg_dir="./jpeg"):
     return jpeg_bpp, jpeg_psnr
 
 def plot_RDCurve():
+    # get these data from CompressAI-master\results\kodak
     JPEG_bpp=[0.32661437988281244,
     0.42312622070312506,
     0.5083855523003472,
@@ -136,6 +137,24 @@ def plot_RDCurve():
     30.30076938092785,
     29.696116673252778,
     29.191735537599026,]
+
+    compressai_fac_bpp=[0.2878078884548611,
+    0.44037882486979174,
+    0.6481357150607638,
+    0.9669765896267358,]
+    compressai_fac_psnr=[29.616915231568353,
+    31.27708728897609,
+    32.956122820153084,
+    35.380922291056244,]
+
+    compressai_hyper_bpp=[0.3198581271701389,
+    0.47835625542534727,
+    0.6686876085069443,
+    0.9388258192274304,]
+    compressai_hyper_psnr=[30.972162072759534,
+    32.83818257445048,
+    34.52626403063645,
+    36.74334835426406,]
       
     fig, ax = plt.subplots(figsize=(7, 4))
 
@@ -148,9 +167,22 @@ def plot_RDCurve():
     # bpp, psnr=file_get("CheckerboardAutogressive")
     # plt.plot(np.array(bpp), np.array(psnr), label="CheckerboardAutogressive", marker='x', color='purple')
 
-    plt.plot(np.array(JPEG_bpp), np.array(JPEG_psnr), label="JPEG", marker='x', color='green')
+    # JPEG
+    plt.plot(np.array(JPEG_bpp), np.array(JPEG_psnr), label="JPEG", marker=',', markersize=1, color='green')
 
-    #plt.plot(np.array(JPEG2000_bpp), np.array(JPEG2000_psnr), label="JPEG2000", marker='x', color='yellow')
+    # # another JPEG
+    # bpp, psnr = jpeg_test()
+    # plt.plot(np.array(bpp)[:14], np.array(psnr)[:14], label="JPEG_group2", marker=',', markersize=1, color='yellow')
+    
+    # JPEG2000
+    plt.plot(np.array(JPEG2000_bpp), np.array(JPEG2000_psnr), label="JPEG2000", marker=',', color='orange')
+
+    # compressai_fac
+    plt.plot(np.array(compressai_fac_bpp), np.array(compressai_fac_psnr), label="compressai_fac", marker=',', markersize=1, color='yellow')
+
+    #compressai_hyper
+    plt.plot(np.array(compressai_hyper_bpp), np.array(compressai_hyper_psnr), label="compressai_hyper", marker=',', markersize=1, color='purple')
+
     
     plt.title("R-D Curve")
     plt.xlabel('bpp')
@@ -160,6 +192,48 @@ def plot_RDCurve():
     fig.savefig("R-D_Curve.jpg")
 
     print("plot successfully")
+
+def plot_time():
+    fig, ax = plt.subplots(figsize=(7, 4))
+
+    bpp, _, enc_time, dec_time=file_get("factorized")
+    plt.plot(np.array(bpp), np.array(enc_time), 'o', label="fact_enc_time", marker='x', color='red')
+    plt.plot(np.array(bpp), np.array(dec_time), 'o', label="fact_dec_time", marker='o', color='red')
+
+    bpp, _, enc_time, dec_time=file_get("hyperprior")
+    plt.plot(np.array(bpp), np.array(enc_time), 'o', label="hyper_enc_time", marker='x', color='blue')
+    plt.plot(np.array(bpp), np.array(dec_time), 'o', label="hyper_dec_time", marker='o', color='blue')
+
+    plt.title("time_contrast")
+    plt.xlabel('bpp')
+    plt.ylabel('time(s)')
+    plt.grid(ls='-.')
+    plt.legend(loc='lower right')
+    fig.savefig("time_contrast.jpg")
+
+def plot_test_curve():
+    x=[120, 130, 140, 150, 160, 170, 180, 190, 200]
+    lmbda=[0.0067, 0.013, 0.025, 0.0483]
+
+    for i in range(len(lmbda)):
+        fig, ax1 = plt.subplots(figsize=(7, 4))
+
+        bpp, psnr = file_get("hyperprior", idx=x, mode="test-Curve", test=i)
+        print(bpp)
+        print(psnr)
+
+        line1, = ax1.plot(x, bpp, color="blue", marker='o', label="bpp")
+        ax1.set_xlabel("epoch_num")
+        ax1.set_ylabel("bpp")
+    
+ 
+        ax2 = ax1.twinx()
+        line2, = ax2.plot(x, psnr, color="red", marker='o', label="psnr")
+        ax2.set_ylabel("psnr")
+
+        plt.legend(handles=[line1, line2], labels=['bpp','psnr'], loc='best')
+        plt.title("test_curve: hyper_lmbda_"+str(lmbda[i]))
+        fig.savefig("hyper_lmbda_"+str(lmbda[i])+".jpg")
 
 def para_num():
     model_name = ["Factorized","Hyperprior","JointAutoregressiveHierarchicalPriors","CheckerboardAutogressive"]
