@@ -85,7 +85,7 @@ python test.py --model_name CheckerboardAutogressive --epoch_num 249
 
 The reproduced RD-curve is plotted below:
 
-![R-D_Curve](C:\Users\yangg\OneDrive - Microsoft\桌面\learning notes\编码seminar技术报告\R-D_Curve.jpg)
+![R-D_Curve](R-D_Curve.jpg)
 
 Specifically, the detailed results are recorded as:
 
