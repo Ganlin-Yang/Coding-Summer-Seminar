@@ -132,6 +132,23 @@ $$
 
 
 ### 1.3 Joint Autoregressive Hierarchical Priors
+- ##### 模型结构图：
+
+- ##### 模型特点：
+
+  在Hyperprior模型结构基础上引入了上下文模块以及熵模块，将由超先验层网络得到的参数$\psi$和上下文模块得到的参数$\Phi$拼接后输入熵模块得到对$\hat{y}$每个元素的概率参数，当认为$\hat{y}$各元素服从相互独立的高斯分布时，概率参数分别为均值means以及方差scales。
+
+  由于引入了上下文模块，各元素在解码过程中相互依赖，即位置靠后的元素需要等到位置靠前的元素解码后才能解码，在时间上有先后顺序，所以需要严格串行的解码方式。使得解码的时间复杂度大幅度上升。
+
+  上下文模块在性能上也同样带来了增益，进一步减少了像素间的空间冗余，实现了在PSNR以及MS-SSIM评价指标上对BPG编码方法的超越。
+
+- ##### 编解码：
+
+  对$\hat{y}$的编解码使用range-coder编码器。编码提供了并行编码和串行编码两种方式，解码只有串行解码一种方式。
+
+  根据Compressai中的说明，在测试过程中模型需要运行在cpu上，但在实际测试中发现cpu上的测试并不稳定，会出现解码乱码的情况，而使用`torch.use_deterministic_algorithms(True)`语句限定在gpu上的测试表现很稳定。
+
+  目前的训练结果正常，但在Kodak数据集上的测试结果仍然存在bpp过大的问题，怀疑问题出在实际编码过程中的熵模型对待编码元素的概率估计不精确以及range-coder不够稳定，后续会继续查找定位。
 
 
 
@@ -139,27 +156,23 @@ $$
 
 
 
-## Part 2: Training/Testing Process
+## 第二部分： 训练/测试过程
 
-### 2.1 Training process
+### 2.1 训练过程
 
-For training, we used the vimeo-90k dataset, and randomly cropped the pictures with the size of 256×256. Models were trained with a batch size of 64, optimized using Adam. The loss function is set as: 
-$$
-Loss=\lambda*255^2*D+R
-$$
-where D denotes mean-square error(MSE), R denotes the estimated code rate, and λ is set as:
-$$
-\lambda\in{0.0067,\ 0.013,\ 0.025,\ 0.0483}
-$$
-As for Hyperprior models and Factorized models, the neural networks' channel number N is set as 128 and M is set as 192 for two lower-rate models; N is set as 192 and M is set as 320 for two higher-rate models. As for JointAutoregressive models and CheckerboardAutogressive models, the neural networks' channel number N is set as 192 and M is set as 192 for two lower-rate models; N is set as 192 and M is set as 320 for two higher-rate models.
+对于训练，我们使用vimeo-90k数据集，在训练时对数据集图像进行尺寸为256×256的随机裁剪，batch size大小为64，并使用Adam优化器。损失函数设置为：
+$$Loss=\lambda*{255^2}*D+R $$
+其中D为均方误差(MSE)，R为估计的码率，λ设置为：
+$$\lambda\in{0.0067,\ 0.013,\ 0.025,\ 0.0483}$$
+对于Hyperprior和Factorized模型，两个低码率点我们设置神经网络的通道数N=128，M=192；两个高码率点我们设置N=192，M=320。对于Joint Autoregressive和Checkerboard Autogressive模型，两个低码率点我们设置神经网络的通道数N=192，M=192；两个高码率点我们设置N=192，M=320。
 
-Due to lack of experience with deep learning training, we tried different kinds of ways to adjust the learning rate and epoch number. First, as for Hyperprior models, we used the `lr_scheduler.MultiStepLR` method in the `torch.optim` package, and set milestones=[40, 90, 140] (epochs). This method allows the learning rate begins with a value of 1e-4, and divided by 2 when meet the milestones. As for Factorized models, we used `lr_scheduler.ReduceLROnPlateau` method, letting the learning rate reduce by half when loss has stopped reducing. Above Hyperprior models and Factorized models were trained for 200 epochs.
+由于缺乏对深度学习训练的经验，我们尝试了多种调整学习率的方式和epoch数。首先对于Hyperprior模型，我们使用`torch.optim`库中的`lr_scheduler.MultiStepLR`学习率调整策略，设置milestones=[40, 90, 140] (epoch数)，让学习率从1e-4开始，逐次递减为原来的0.5倍。对于Factorized模型的两个高码率点，我们依旧使用上述策略；对于两个低码率点，我们使用`lr_scheduler.ReduceLROnPlateau`学习率调整策略，让学习率从1e-4开始，当loss不再下降时自适应调整为原来的0.5倍。以上Hyperprior和Factorized模型的训练均设置epoch数为200。
 
-After trying `lr_scheduler.ReduceLROnPlateau` method more powerful, as for JointAutoregressive models and CheckerboardAutogressive models' training, we all used this method for learning rate adjustment. These models were trained for 250 epochs.
+在尝试`lr_scheduler.ReduceLROnPlateau`学习率调整策略较为有效后，对于Joint Autoregressive和Checkerboard Autoregressive模型的训练，我们均使用该方法进行学习率的调整，并将epoch数设为250。
 
-The command for training is as below:
+模型训练的命令为：
 
-```py
+```python
 python train.py 
 --dataset # path to training dataset
 --test_dataset # path to testing dataset
@@ -172,41 +185,44 @@ python train.py
 --exp_version # experiment version ID, assign a different value each training time to aviod overwrite
 --gpu_id # pass '0 1 2' for 3 gpus as example, pass '0' for single gpu 
 --code_rate # choose from 'low' or 'high'
+
 ```
 
-### 2.2 Testing process
 
-To test Factorized models:
+
+### 2.2 测试过程
+
+Factorized模型的测试命令行为：
 
 ```python
 python test.py --model_name Factorized --epoch_num 199
 ```
 
-To test Hyperprior models:
+Hyperprior模型的测试命令行为：
 
 ```python
 python test.py --model_name Hyperprior --epoch_num 199
 ```
 
-To test JointAutoregressive models:
+JointAutoregressive模型的测试命令行为：
 
 ```python
 python test.py --model_name JointAutoregressiveHierarchicalPriors --epoch_num 249
 ```
 
-To test CheckerboardAutogressive models:
+CheckerboardAutogressive模型的测试命令行为：
 
 ```python
 python test.py --model_name CheckerboardAutogressive --epoch_num 249
 ```
 
-## Part 3: Testing results
+## 第三部分： 测试结果
 
-The reproduced RD-curve is plotted below:
+我们复现出来的R-D曲线如下所示：
 
-![./statistics/R-D_Curve_full.jpg]()
+![R-D_Curve_full](statistics/R-D_Curve_full.jpg)
 
-Specifically, the Factorized models' detailed results are recorded as:
+Factorized模型的具体结果如下表所示：
 
 | lmbda  | num_pixels | bits     | bpp      | psnr     | time(enc) | time(dec) |
 | ------ | ---------- | -------- | -------- | -------- | --------- | --------- |
@@ -215,7 +231,7 @@ Specifically, the Factorized models' detailed results are recorded as:
 | 0.025  | 393216     | 255458   | 0.650125 | 31.84871 | 0.383417  | 0.357583  |
 | 0.0483 | 393216     | 364205.3 | 0.92675  | 33.6627  | 0.230708  | 0.234292  |
 
-The Hyperprior models' detailed results are recorded as:
+Hyperprior模型的具体结果如下表所示：
 
 | lmbda  | num_pixels | bits     | bpp      | psnr     | time(enc) | time(dec) |
 | ------ | ---------- | -------- | -------- | -------- | --------- | --------- |
@@ -224,14 +240,14 @@ The Hyperprior models' detailed results are recorded as:
 | 0.025  | 393216     | 240186.3 | 0.610958 | 32.97386 | 1.117917  | 0.772125  |
 | 0.0483 | 393216     | 335234.7 | 0.852583 | 34.73847 | 1.202125  | 1.087917  |
 
-## Part 4: Model Complexity
+## 第四部分：模型复杂度
 
-We use ***thop*** package to calculate model parameters(Params) and Multiply–Accumulate Operations(MACs) :
+我们使用***thop***库测试模型的参数量 (Params)以及乘加累积操作数(MACs), 测量结果如下：
 
 | Methods                                  | Params  | MACs     |
 | ---------------------------------------- | ------- | -------- |
-| Factorized                               | 2.887M  | 771.752G |
-| Hyperprior                               | 2.887M  | 771.752G |
-| Joint Autoregressive Hierarchical Priors | 12.053M | 1.730T   |
-| Checkerboard Autoregressive              | 12.053M | 1.747T   |
+| Factorized                               | 2.998M  | 771.752G |
+| Hyperprior                               | 5.075M  | 771.752G |
+| Joint Autoregressive Hierarchical Priors | 14.130M | 1.730T   |
+| Checkerboard Autoregressive              | 14.130M | 1.747T   |
 
