@@ -18,20 +18,15 @@
 
 ### 1.4 Checkerboard Autoregressive
 
-
-
 ## Part 2: Training/Testing Process
 
 ### 2.1 Training process
 
 For training, we used the vimeo-90k dataset, and randomly cropped the pictures with the size of 256×256. Models were trained with a batch size of 64, optimized using Adam. The loss function is set as: 
-$$
-Loss=\lambda*255^2*D+R
-$$
+
+$$Loss=\lambda*{255^2}*D+R $$
 where D denotes mean-square error(MSE), R denotes the estimated code rate, and λ is set as:
-$$
-\lambda\in{0.0067,\ 0.013,\ 0.025,\ 0.0483}
-$$
+$$\lambda\in{0.0067,\ 0.013,\ 0.025,\ 0.0483}$$
 As for Hyperprior models and Factorized models, the neural networks' channel number N is set as 128 and M is set as 192 for two lower-rate models; N is set as 192 and M is set as 320 for two higher-rate models. As for JointAutoregressive models and CheckerboardAutogressive models, the neural networks' channel number N is set as 192 and M is set as 192 for two lower-rate models; N is set as 192 and M is set as 320 for two higher-rate models.
 
 Due to lack of experience with deep learning training, we tried different kinds of ways to adjust the learning rate and epoch number. First, as for Hyperprior models, we used the `lr_scheduler.MultiStepLR` method in the `torch.optim` package, and set milestones=[40, 90, 140] (epochs). This method allows the learning rate begins with a value of 1e-4, and divided by 2 when meet the milestones. As for Factorized models, we used `lr_scheduler.ReduceLROnPlateau` method, letting the learning rate reduce by half when loss has stopped reducing. Above Hyperprior models and Factorized models were trained for 200 epochs.
@@ -85,7 +80,7 @@ python test.py --model_name CheckerboardAutogressive --epoch_num 249
 
 The reproduced RD-curve is plotted below:
 
-![./statistics/R-D_Curve_full.jpg]()
+![R-D_Curve_full](statistics/R-D_Curve_full.jpg)
 
 Specifically, the Factorized models' detailed results are recorded as:
 
