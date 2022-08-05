@@ -50,7 +50,7 @@ Among them, the $f_K$ for matrix $\mathbb{R}^{d_k}\to\mathbb{R}^{r_k}$, and $f'_
 $F_k$is designed as follows
 
 $$f_{k}(\boldsymbol{x})=g_{k}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
-\quad\quad1 \leq k<K\\f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)\quad\quad k=K$$
+\quad\quad1 \leq k<K \\ f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)\quad\quad k=K$$
 
 Where $g_k$is designed in the following form
 
@@ -80,8 +80,7 @@ In this work, we set K=4 all the time and achieved as good a performance as the 
 
 ### 1.2 Hyperprior
 
-该小节复现了[Variational Image Compression with a scale hyperprior]()，该工作沿袭FactorizedPrior的工作，提出了描述图像边信息的HyperPrior，并基于HyperPrior将隐藏层变量$y$建模为均值为零、方差为$\sigma$的高斯分布，从而实现了概率模型随图片内容的动态调整。
-
+This subsection reproduces [Variational Image Compression with a scale hyperprior](), which follows the work of FactorizedPrior and proposes Hyperprior to describe Image side information. Based on HyperPrior, the hidden layer variable $y$is modeled as a Gaussian distribution with mean zero and variance $\ Sigma $, thus realizing the dynamic adjustment of the probability model with the content of the picture.
 
 #### 1.2.1 Previous Work
 
