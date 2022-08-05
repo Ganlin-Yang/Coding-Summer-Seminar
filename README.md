@@ -50,7 +50,7 @@ Among them, the $f_K$ for matrix $\mathbb{R}^{d_k}\to\mathbb{R}^{r_k}$, and $f'_
 $F_k$is designed as follows
 
 $$\begin{equation}f_{k}(\boldsymbol{x})=g_{k}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
-\quad\quad1 \leq k<K\end{equation}$$
+\quad\quad \leq k<K\end{equation}$$
 
 
 $$\begin{equation}f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)\quad\quad k=K\end{equation}$$
