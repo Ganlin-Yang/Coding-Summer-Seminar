@@ -233,10 +233,10 @@ The Hyperprior models' detailed results are recorded as:
 We show an image(take kodak-19 as an example) compressed using our method optimized for a low value of λ (and thus, a low bit rate), compared to JPEG image compressed at equal or greater bit rates.
 
 <center>
-    <img src="statistics/reconstruct_image/kodim19.png"  style="zoom:5%;"/>
-    <img src="statistics/reconstruct_image/fac_low-rate.png"  style="zoom:5%;"/>
-    <img src="statistics/reconstruct_image/hyper_low-rate.png"  style="zoom:5%;" />
-    <img src="statistics/reconstruct_image/JPEG_low-rate.jpg"  style="zoom:5%;"/>
+    <img src="statistics/reconstruct_image/kodim19.png"  width="10"/>
+    <img src="statistics/reconstruct_image/fac_low-rate.png"  width="10"/>
+    <img src="statistics/reconstruct_image/hyper_low-rate.png"  width="10" />
+    <img src="statistics/reconstruct_image/JPEG_low-rate.jpg"  width="10"/>
 </center>
 
 The above images from left to right are the original kodak-19 image, image compressed using our Factorized model, image compressed using our Hyperprior model, and JPEG compressed image. The detailed bpp and psnr are as below:
