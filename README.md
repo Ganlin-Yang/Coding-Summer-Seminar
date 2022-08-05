@@ -5,11 +5,121 @@
 ## Part 1: Model Architectures
 
 ### 1.1 Factorized
+This subsection reproduces [END-To-END Optimized Image Compression](https://arxiv.org/abs/1611.01704), In this work, an end-to-end image compression framework including analysistransformation, uniform Quantizer and synthesizer is proposed.  The nonderivable steps such as quantization and discrete entropy are relaxed into derivable steps using the form of proxy functions. This work also proves that under certain conditions, the relaxed loss function in this paper is formally similar to the likelihood of a variational Autoencoder.
+
+#### 1.1.1 Previous Work
+
+The data flow diagram of the working end-to-end image compression framework is shown below
+
+![FactorizedPrior](./Image4md/factorized_prior.png)
+
+Where, X and $\hat{x}$are the original image and the reconstructed image, respectively, and $G_A $, $G_s $and $G_p $represent the analysis transform (encoding), synthesis transform (decoding) and perceptual domain transform, respectively. In the actual implementation, the structure of $G_A $and $G_S $is symmetric, and is mainly composed of alternating splices of the convolutional layer and the Generalized Service Normalization layer.
+
+![FactorizedPrior_network](Image4md/factorized_network.png)
+
+The above figure shows the transformation steps of $G_A $and $G_s $, and indicates the number of parameters that need to be optimized for each layer. The set of parameters that need to be optimized for analytical transformation and synthetic transformation are denoted as $\phi$and $\theta$respectively, corresponding to $y=g_a(x;\theta)$ and $\hat{x}=g_s(\hat{y};\theta)$.
 
 
+#### 1.1.2 Our work
+
+
+In reproducing the paper, we draw on the progress of subsequent work and the requirements of the current task, **removing Perceptron Transformation**. In addition, in this paper, the training process of the realization of the basic follow [compressAI](https://interdigitalinc.github.io/CompressAI/), the test code part on the basis of compressAI realized further simplification and improvement, Especially arithmetic entropy encoder and code stream design.
+
+
+Arithmetic entropy codec is ETH Zurich open source based on the study of nondestructive arithmetic encoder [torchac](https://pypi.org/project/torchac), the input parameter is the CDF of the symbol to be encoded and the corresponding symbol. Therefore, the code stream is designed into two parts. The first part is the output of arithmetic entropy encoder, and the second part is the minimum and maximum values of symbols to be encoded, which is more concise than the implementation of compressAI.
+
+The training and testing flow chart of the Factorized Prior model designed in this project is shown below:
+
+![our_train](./Image4md/our_factorized_prior.png)
+
+![our_test](./Image4md/our_factorized_prior_test.png)
+
+
+#### 1.1.3  nonparametric probability density model
+
+In this work, we use a multivariable nonparametric probabilistic model to model the hidden layer variables, and here we illustrate the basic principle of the probabilistic model in the simple case of univariate.
+
+We first define the probability density $P $and the cumulative probability density $C $, which are decomposed into the following form
+
+$$\begin{equation}c=f_{K} \circ f_{K-1} \cdots f_{1}\end{equation}$$
+
+$$\begin{equation}p=f_{K}^{\prime} \cdot f_{K-1}^{\prime} \cdots f_{1}^{\prime}\end{equation}$$
+
+Among them, the $f_K$ for matrix $\mathbb{R}^{d_k}\to\mathbb{R}^{r_k}$, and $f'_K$ first order partial derivatives of the (Jacobi matrix), $\ circ $said matrix multiplication. Here, to ensure that the probability density follows the definition (non-negative between 0 and 1), the elements of the Jacobi matrix are required to be non-negative.
+
+$F_k$is designed as follows
+
+$$f_{k}(\boldsymbol{x})=g_{k}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
+\quad\quad1 \leq k<K\\f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)\quad\quad k=K$$
+
+Where $g_k$is designed in the following form
+
+$$g_{k}(\boldsymbol{x})=\boldsymbol{x}+\boldsymbol{a}^{(k)} \odot \tanh (\boldsymbol{x})$$
+
+Where $\odot$ represents the Elementwise multiplication, and the plus or minus of $a^{(k)}$ can be used to control whether to scale the space around the null.
+
+The overall operation is as follows
+
+$$\begin{aligned}
+f_{k}^{\prime}(\boldsymbol{x}) &=\operatorname{diag} g_{k}^{\prime}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right) \cdot \boldsymbol{H}^{(k)} \\
+g_{k}^{\prime}(\boldsymbol{x}) &=1+\boldsymbol{a}^{(k)} \odot \tanh ^{\prime}(\boldsymbol{x}) \\
+f_{K}^{\prime}(\boldsymbol{x}) &=\operatorname{sigmoid}^{\prime}\left(\boldsymbol{H}^{(K)} \boldsymbol{x}+\boldsymbol{b}^{(K)}\right) \cdot \boldsymbol{H}^{(K)}
+\end{aligned}$$
+
+Here, to restrict the Jacobi matrix to be nonnegative and $a^{(k)}$ to be greater than -1, parameter renormalization is required:
+
+$$\begin{aligned}
+\boldsymbol{H}^{(k)} &=\operatorname{softplus}\left(\hat{\boldsymbol{H}}^{(k)}\right) \\
+\boldsymbol{a}^{(k)} &=\tanh \left(\hat{\boldsymbol{a}}^{(k)}\right)\end{aligned}$$
+
+The following figure shows that the three-layer non-parametric probability density model $P $is used in this paper to fit a mixed Gaussian distribution, and the fitting effect is very good. The gray line shows the convergence process of the fitting
+
+![image-20220702153547345](./Image4md/factorizedPrior.png)
+
+In this work, we set K=4 all the time and achieved as good a performance as the piecewise linear function, thanks to the fact that it is more friendly to implement this operation based on an automatic differentiator.
 
 ### 1.2 Hyperprior
 
+该小节复现了[Variational Image Compression with a scale hyperprior]()，该工作沿袭FactorizedPrior的工作，提出了描述图像边信息的HyperPrior，并基于HyperPrior将隐藏层变量$y$建模为均值为零、方差为$\sigma$的高斯分布，从而实现了概率模型随图片内容的动态调整。
+
+
+#### 1.2.1 Previous Work
+
+The researchers first performed a pre-experiment by visualizing the Factorized Prior's working hidden layer variable $y$ (second from left) and the variance predicted by HyperPrior (second from right) and the hidden layer variable $y$ after variance removal. The results are shown below.
+
+![](./Image4md/side_information.png)
+
+It can be seen that 1) factorized Prior did not fully learn part of texture and edge information, so the spatial coupling of discrete signals could not be completely removed. 2)$\hat{y}$ after removing the spatial coupling basically follows $\mathcal{N}(0,I)$.
+
+Based on this observation, researchers have proposed an end-to-end image compression framework with HyperPrior
+
+![](./Image4md/hyperPrior.png)
+
+Our formulation is the formulation of codec on latent representation \hat{y}, and the formulation of the process can be written as follows:
+
+$$\begin{equation}
+\begin{aligned}
+\mathbb{E}_{\boldsymbol{x} \sim p_{\boldsymbol{x}}} D_{\mathrm{KL}}\left[q \| p_{\tilde{\boldsymbol{y}}, \tilde{\boldsymbol{z}} \mid \boldsymbol{x}}\right]=\mathbb{E}_{\boldsymbol{x} \sim p_{\boldsymbol{x}}} \mathbb{E}_{\tilde{\boldsymbol{y}}, \tilde{\boldsymbol{z}} \sim q}\left[\log q(\tilde{\boldsymbol{y}}, \tilde{\boldsymbol{z}} \mid \boldsymbol{x})-\log p_{\boldsymbol{x} \mid \tilde{\boldsymbol{y}}}(\boldsymbol{x} \mid \tilde{\boldsymbol{y}})\right.\\
+\left.-\log p_{\tilde{\boldsymbol{y}} \mid \tilde{\boldsymbol{z}}}(\tilde{\boldsymbol{y}} \mid \tilde{\boldsymbol{z}})-\log p_{\tilde{\boldsymbol{z}}}(\tilde{\boldsymbol{z}})\right]+\text { const. }
+\end{aligned}
+\end{equation}$$
+
+
+It is worth noting that the number of channels needs to be adjusted manually according to the complexity of the task, and in the paper, the researchers recommend $N=128\quad M=192$for five low $\lambda$values and $N=192\quad M=320$for three high $\lambda$values.
+
+#### 1.2.2 Our work
+
+Like FactorizedPrior, we still use Torchac as the entropy encoder, and like that, we add the bitstream and symbol bits to the bitstream for the hidden layer variable $\hat{z}$.
+
+
+
+The training framework designed in this project is shown in the figure below
+
+![scaleHyperPrior](./Image4md/scaleHyper.jpg)
+
+Loss function is designed as
+
+$$Loss=\sum_i{p_{\hat{y}_i}}(\hat{y}_i)+\sum_j{p_{\hat{z}_j}}(\hat{z}_j)+\lambda d(x,\hat{x})$$
 
 
 ### 1.3 Joint Autoregressive Hierarchical Priors

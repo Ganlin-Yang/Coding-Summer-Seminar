@@ -36,23 +36,17 @@
 在该工作中，我们使用多变量的非参数概率模型对隐藏层变量进行建模，在此以单变量的简单情形说明该概率模型的基本原理。
 
 首先定义概率密度$p$和累积概率密度$c$，并被分解为以下形式
-$$\begin{equation}
-c=f_{K} \circ f_{K-1} \cdots f_{1}
-\end{equation}$$
 
-$$\begin{equation}
-p=f_{K}^{\prime} \cdot f_{K-1}^{\prime} \cdots f_{1}^{\prime}
-\end{equation}$$
+$$\begin{equation}c=f_{K} \circ f_{K-1} \cdots f_{1}\end{equation}$$
+
+$$\begin{equation}p=f_{K}^{\prime} \cdot f_{K-1}^{\prime} \cdots f_{1}^{\prime}\end{equation}$$
 
 其中，$f_K$为矩阵$\mathbb{R}^{d_k}\to\mathbb{R}^{r_k}$，而$f'_K$为$f_K$的一阶偏导（雅各比矩阵），$\circ$表示矩阵乘法。此处，为保证概率密度服从定义（位于0-1之间的非负数），要求雅各比矩阵的元素为非负数。
 
 $f_k$被设计为如下的形式
 
 $$f_{k}(\boldsymbol{x})=g_{k}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
-\quad\quad1 \leq k<K\\$$
-
-$$f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
-\quad\quad  k=K$$
+\quad\quad1 \leq k<K\\f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)\quad\quad k=K$$
 
 其中的$g_k$被设计为如下形式
 
@@ -69,10 +63,11 @@ f_{K}^{\prime}(\boldsymbol{x}) &=\operatorname{sigmoid}^{\prime}\left(\boldsymbo
 \end{aligned}$$
 
 此处为限制雅各比矩阵非负以及$a^{(k)}$大于-1，需要进行参数重整：
+
 $$\begin{aligned}
 \boldsymbol{H}^{(k)} &=\operatorname{softplus}\left(\hat{\boldsymbol{H}}^{(k)}\right) \\
-\boldsymbol{a}^{(k)} &=\tanh \left(\hat{\boldsymbol{a}}^{(k)}\right)\end{aligned}
-$$
+\boldsymbol{a}^{(k)} &=\tanh \left(\hat{\boldsymbol{a}}^{(k)}\right)\end{aligned}$$
+
 下图展示了本文使用三层的非参数概率密度模型$p$拟合一个混合高斯分布，并实现了很好的拟合效果，灰色线条展示了拟合的收敛过程
 
 ![image-20220702153547345](./Image4md/factorizedPrior.png)
