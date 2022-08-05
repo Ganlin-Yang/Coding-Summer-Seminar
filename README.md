@@ -13,7 +13,19 @@
 
 
 ### 1.3 Joint Autoregressive Hierarchical Priors
+- ##### Fig
 
+- ##### Features
+
+  Based on the structure of the Hyperprior model, the context module and the entropy module are introduced. After splicing the parameter $\psi$ obtained by the super-priority network and the parameter $\Phi$ obtained by the context module, enter the entropy module to get the pair $\hat{y}$ The probability parameter of each element, when the $\hat{y}$ elements are considered to be subject to mutually independent Gaussian distributions, the probability parameters are the mean and the variance scales respectively.
+
+  Due to the introduction of the context module, each element depends on each other during the decoding process, that is, the elements in the back position need to wait for the elements in the front position to be decoded before they can be decoded. There is a sequence in time, so a strict serial decoding method is required. The time complexity of decoding is greatly increased.
+
+  The context module also brings gains in performance, further reducing the spatial redundancy between pixels, and surpassing the BPG coding method in PSNR and MS-SSIM evaluation indicators.
+
+- ##### compress&decompress
+
+  The range-coder is used to  encode and decode $\hat{y}$. Encoding provides two ways of parallel compress and serial compress, and there is only one way of serial decompress for decoding. According to the description in Compressai, the model needs to run on the cpu during the test, but in the actual test, it is found that the test on the cpu is not stable, and there will be garbled decoding, however,  the test performance on gpu is very stable with using  `torch.use_deterministic_algorithms(True)` statement. The current training results are normal, but the test results on the Kodak dataset still have the problem that the bpp is too large. It is suspected that the problem lies in the inaccurate estimation of the probability of encoding elements by the entropy model in the actual encoding process and the instability of the range-coder.We will continue to find the location.
 
 
 ### 1.4 Checkerboard Autoregressive
@@ -106,8 +118,8 @@ We use ***thop*** package to calculate model parameters(Params) and Multiply–A
 
 | Methods                                  | Params  | MACs     |
 | ---------------------------------------- | ------- | -------- |
-| Factorized                               | 2.998M  | 771.752G |
-| Hyperprior                               | 5.075M  | 771.752G |
-| Joint Autoregressive Hierarchical Priors | 14.130M | 1.730T   |
-| Checkerboard Autoregressive              | 14.130M | 1.747T   |
+| Factorized                               | 2.887M  | 771.752G |
+| Hyperprior                               | 2.887M  | 771.752G |
+| Joint Autoregressive Hierarchical Priors | 12.053M | 1.730T   |
+| Checkerboard Autoregressive              | 12.053M | 1.747T   |
 
