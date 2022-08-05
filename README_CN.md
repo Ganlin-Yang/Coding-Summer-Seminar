@@ -36,51 +36,42 @@
 在该工作中，我们使用多变量的非参数概率模型对隐藏层变量进行建模，在此以单变量的简单情形说明该概率模型的基本原理。
 
 首先定义概率密度$p$和累积概率密度$c$，并被分解为以下形式
-$$
-\begin{equation}
+$$\begin{equation}
 c=f_{K} \circ f_{K-1} \cdots f_{1}
-\end{equation}
-$$
+\end{equation}$$
 
-$$
-\begin{equation}
+$$\begin{equation}
 p=f_{K}^{\prime} \cdot f_{K-1}^{\prime} \cdots f_{1}^{\prime}
-\end{equation}
-$$
+\end{equation}$$
 
 其中，$f_K$为矩阵$\mathbb{R}^{d_k}\to\mathbb{R}^{r_k}$，而$f'_K$为$f_K$的一阶偏导（雅各比矩阵），$\circ$表示矩阵乘法。此处，为保证概率密度服从定义（位于0-1之间的非负数），要求雅各比矩阵的元素为非负数。
 
 $f_k$被设计为如下的形式
-$$
-f_{k}(\boldsymbol{x})=g_{k}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
-\quad\quad1 \leq k<K\\
-$$
 
-$$
-f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
-\quad\quad  k=K
-$$
+$$f_{k}(\boldsymbol{x})=g_{k}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
+\quad\quad1 \leq k<K\\$$
+
+$$f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
+\quad\quad  k=K$$
 
 其中的$g_k$被设计为如下形式
-$$
-g_{k}(\boldsymbol{x})=\boldsymbol{x}+\boldsymbol{a}^{(k)} \odot \tanh (\boldsymbol{x})
-$$
+
+$$g_{k}(\boldsymbol{x})=\boldsymbol{x}+\boldsymbol{a}^{(k)} \odot \tanh (\boldsymbol{x})$$
+
 其中，$\odot$表示elementwise乘法，$a^{(k)}$的正负可用来控制是否伸缩零值附近的空间。
 
 整体的运算如下所示
-$$
-\begin{aligned}
+
+$$\begin{aligned}
 f_{k}^{\prime}(\boldsymbol{x}) &=\operatorname{diag} g_{k}^{\prime}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right) \cdot \boldsymbol{H}^{(k)} \\
 g_{k}^{\prime}(\boldsymbol{x}) &=1+\boldsymbol{a}^{(k)} \odot \tanh ^{\prime}(\boldsymbol{x}) \\
 f_{K}^{\prime}(\boldsymbol{x}) &=\operatorname{sigmoid}^{\prime}\left(\boldsymbol{H}^{(K)} \boldsymbol{x}+\boldsymbol{b}^{(K)}\right) \cdot \boldsymbol{H}^{(K)}
-\end{aligned}
-$$
+\end{aligned}$$
+
 此处为限制雅各比矩阵非负以及$a^{(k)}$大于-1，需要进行参数重整：
-$$
-\begin{aligned}
+$$\begin{aligned}
 \boldsymbol{H}^{(k)} &=\operatorname{softplus}\left(\hat{\boldsymbol{H}}^{(k)}\right) \\
-\boldsymbol{a}^{(k)} &=\tanh \left(\hat{\boldsymbol{a}}^{(k)}\right)
-\end{aligned}
+\boldsymbol{a}^{(k)} &=\tanh \left(\hat{\boldsymbol{a}}^{(k)}\right)\end{aligned}
 $$
 下图展示了本文使用三层的非参数概率密度模型$p$拟合一个混合高斯分布，并实现了很好的拟合效果，灰色线条展示了拟合的收敛过程
 
@@ -106,14 +97,12 @@ $$
 
 具体操作是在latent representation \hat{y}上又进行了一次编解码，得到\hat{z}，该过程的formulation可表示为：
 
-$$
-\begin{equation}
+$$\begin{equation}
 \begin{aligned}
 \mathbb{E}_{\boldsymbol{x} \sim p_{\boldsymbol{x}}} D_{\mathrm{KL}}\left[q \| p_{\tilde{\boldsymbol{y}}, \tilde{\boldsymbol{z}} \mid \boldsymbol{x}}\right]=\mathbb{E}_{\boldsymbol{x} \sim p_{\boldsymbol{x}}} \mathbb{E}_{\tilde{\boldsymbol{y}}, \tilde{\boldsymbol{z}} \sim q}\left[\log q(\tilde{\boldsymbol{y}}, \tilde{\boldsymbol{z}} \mid \boldsymbol{x})-\log p_{\boldsymbol{x} \mid \tilde{\boldsymbol{y}}}(\boldsymbol{x} \mid \tilde{\boldsymbol{y}})\right.\\
 \left.-\log p_{\tilde{\boldsymbol{y}} \mid \tilde{\boldsymbol{z}}}(\tilde{\boldsymbol{y}} \mid \tilde{\boldsymbol{z}})-\log p_{\tilde{\boldsymbol{z}}}(\tilde{\boldsymbol{z}})\right]+\text { const. }
 \end{aligned}
-\end{equation}
-$$
+\end{equation}$$
 
 值得注意的是，通道数需要根据任务的复杂程度进行手动调节，在文章中，研究人员推荐，对于5个低$\lambda$值，$N=128\quad M=192$，对于3个高$\lambda$值，$N=192\quad M=320$.
 
@@ -126,9 +115,7 @@ $$
 ![scaleHyperPrior](./Image4md/scaleHyper.jpg)
 
 损失函数设计为
-$$
-Loss=\sum_i{p_{\hat{y}_i}}(\hat{y}_i)+\sum_j{p_{\hat{z}_j}}(\hat{z}_j)+\lambda d(x,\hat{x})
-$$
+$$Loss=\sum_i{p_{\hat{y}_i}}(\hat{y}_i)+\sum_j{p_{\hat{z}_j}}(\hat{z}_j)+\lambda d(x,\hat{x})$$
 
 
 ### 1.3 Joint Autoregressive Hierarchical Priors
