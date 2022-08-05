@@ -48,14 +48,9 @@
 ### 2.1 训练过程
 
 对于训练，我们使用vimeo-90k数据集，在训练时对数据集图像进行尺寸为256×256的随机裁剪，batch size大小为64，并使用Adam优化器。损失函数设置为：
-$$
-Loss=\lambda*255^2*D+R
-$$
+$$Loss=\lambda*{255^2}*D+R $$
 其中D为均方误差(MSE)，R为估计的码率，λ设置为：
-
-$$
-\lambda\in{0.0067,\ 0.013,\ 0.025,\ 0.0483}
-$$
+$$\lambda\in{0.0067,\ 0.013,\ 0.025,\ 0.0483}$$
 对于Hyperprior和Factorized模型，两个低码率点我们设置神经网络的通道数N=128，M=192；两个高码率点我们设置N=192，M=320。对于Joint Autoregressive和Checkerboard Autogressive模型，两个低码率点我们设置神经网络的通道数N=192，M=192；两个高码率点我们设置N=192，M=320。
 
 由于缺乏对深度学习训练的经验，我们尝试了多种调整学习率的方式和epoch数。首先对于Hyperprior模型，我们使用`torch.optim`库中的`lr_scheduler.MultiStepLR`学习率调整策略，设置milestones=[40, 90, 140] (epoch数)，让学习率从1e-4开始，逐次递减为原来的0.5倍。对于Factorized模型的两个高码率点，我们依旧使用上述策略；对于两个低码率点，我们使用`lr_scheduler.ReduceLROnPlateau`学习率调整策略，让学习率从1e-4开始，当loss不再下降时自适应调整为原来的0.5倍。以上Hyperprior和Factorized模型的训练均设置epoch数为200。
