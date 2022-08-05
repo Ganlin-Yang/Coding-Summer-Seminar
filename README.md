@@ -202,9 +202,13 @@ python test.py --model_name CheckerboardAutogressive --epoch_num 249
 
 ## Part 3: Testing results
 
-The reproduced RD-curve is plotted below:
+### 3.1 R-D Curve
+
+The R-D Curve is plotted below:
 
 ![R-D_Curve_full](statistics/R-D_Curve_full.jpg)
+
+We can see that our models both provide better rate-distortion performance compared to JPEG. What's more, our Hyperprior model can provide better performance than JPEG2000. Compared with compressai official results, our models get 1dB lower than the official results at same bit rates.
 
 Specifically, the Factorized models' detailed results are recorded as:
 
@@ -224,13 +228,34 @@ The Hyperprior models' detailed results are recorded as:
 | 0.025  | 393216     | 240186.3 | 0.610958 | 32.97386 | 1.117917  | 0.772125  |
 | 0.0483 | 393216     | 335234.7 | 0.852583 | 34.73847 | 1.202125  | 1.087917  |
 
+### 3.2 Subjective quality evaluation
+
+We show an image(take kodak-19 as an example) compressed using our method optimized for a low value of λ (and thus, a low bit rate), compared to JPEG image compressed at equal or greater bit rates.
+
+<center>
+    <img src="statistics/reconstruct_image/kodim19.png"  style="zoom:45%;"/>
+    <img src="statistics/reconstruct_image/fac_low-rate.png"  style="zoom:45%;"/>
+    <img src="statistics/reconstruct_image/hyper_low-rate.png"  style="zoom:45%;" />
+    <img src="statistics/reconstruct_image/JPEG_low-rate.jpg"  style="zoom:45%;"/>
+</center>
+
+The above images from left to right are the original kodak-19 image, image compressed using our Factorized model, image compressed using our Hyperprior model, and JPEG compressed image. The detailed bpp and psnr are as below:
+
+| Methods    | bpp   | psnr   |
+| ---------- | ----- | ------ |
+| Factorized | 0.250 | 28.496 |
+| Hyperprior | 0.255 | 29.357 |
+| JPEG       | 0.221 | 23.890 |
+
+At similar bit rates, our method provides the higher visual quality on the kodak-19 image. However, for some detailed parts of the original image, such as the textures of the sky and the fence, our Factorized model restores more blur, and the Hyperprior model retains some textures, but a little blur still exists. JPEG shows severe blocking artifacts at this bit rate.
+
 ## Part 4: Model Complexity
 
 We use ***thop*** package to calculate model parameters(Params) and Multiply–Accumulate Operations(MACs) :
 
 | Methods                                  | Params  | MACs     |
 | ---------------------------------------- | ------- | -------- |
-| Factorized                               | 2.889M  | 72.352G |
+| Factorized                               | 2.887M  | 72.352G |
 | Hyperprior                               | 4.969M  | 74.014G |
 | Joint Autoregressive Hierarchical Priors | 12.053M | 162.232G   |
 | Checkerboard Autoregressive              | 12.053M | 163.792G   |
