@@ -49,8 +49,11 @@ Among them, the $f_K$ for matrix $\mathbb{R}^{d_k}\to\mathbb{R}^{r_k}$, and $f'_
 
 $F_k$is designed as follows
 
-$$f_{k}(\boldsymbol{x})=g_{k}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
-\quad\quad1 \leq k<K \\ f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)\quad\quad k=K$$
+$$\begin{equation}f_{k}(\boldsymbol{x})=g_{k}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
+\quad\quad1 \leq k<K\end{equation}$$
+
+
+$$\begin{equation}f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)\quad\quad k=K\end{equation}$$
 
 Where $g_k$is designed in the following form
 
@@ -94,7 +97,7 @@ Based on this observation, researchers have proposed an end-to-end image compres
 
 ![](./Image4md/hyperPrior.png)
 
-Our formulation is the formulation of codec on latent representation \hat{y}, and the formulation of the process can be written as follows:
+Our formulation is the formulation of codec on latent representation $\hat{y}$, and the formulation of the process can be written as follows:
 
 $$\begin{equation}
 \begin{aligned}

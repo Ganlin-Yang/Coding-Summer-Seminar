@@ -45,8 +45,11 @@ $$\begin{equation}p=f_{K}^{\prime} \cdot f_{K-1}^{\prime} \cdots f_{1}^{\prime}\
 
 $f_k$被设计为如下的形式
 
-$$f_{k}(\boldsymbol{x})=g_{k}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
-\quad\quad1 \leq k<K\\f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)\quad\quad k=K$$
+$$\begin{equation}f_{k}(\boldsymbol{x})=g_{k}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
+\quad\quad1 \leq k<K\end{equation}$$
+
+
+$$\begin{equation}f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)\quad\quad k=K\end{equation}$$
 
 其中的$g_k$被设计为如下形式
 
