@@ -230,8 +230,8 @@ We use ***thop*** package to calculate model parameters(Params) and Multiply–A
 
 | Methods                                  | Params  | MACs     |
 | ---------------------------------------- | ------- | -------- |
-| Factorized                               | 2.998M  | 771.752G |
-| Hyperprior                               | 5.075M  | 771.752G |
-| Joint Autoregressive Hierarchical Priors | 14.130M | 1.730T   |
-| Checkerboard Autoregressive              | 14.130M | 1.747T   |
+| Factorized                               | 2.889M  | 72.352G |
+| Hyperprior                               | 4.969M  | 74.014G |
+| Joint Autoregressive Hierarchical Priors | 12.053M | 162.232T   |
+| Checkerboard Autoregressive              | 12.053M | 163,792T   |
 
