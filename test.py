@@ -3,7 +3,7 @@ import numpy as np
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
-from model import Factorized, Hyperprior, JointAutoregressiveHierarchicalPriors, CheckerboardAutogressive
+import model
 from data_loader import KodakDataset
 from torchvision import transforms
 from torch.utils.data import DataLoader
@@ -19,9 +19,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 @torch.no_grad()
 def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorized'):
     # load data
-    start_time = time.time()
-
-    assert model_name in ["Factorized","Hyperprior","JointAutoregressiveHierarchicalPriors","CheckerboardAutogressive"]
+    assert model_name in ["Factorized", "Hyperprior", "JointAutoregressiveHierarchicalPriors", "CheckerboardAutogressive"]
     # 对于Factorized，前两个低码率点N=128，M=192，后两个高码率点N=192，M=320
     # 对于Hyperprior，前两个低码率点N=128，M=192，后两个高码率点N=192，M=320
     # 对于JointAutoregressiveHierarchicalPriors，前两个低码率点N=M=192，后两个高码率点N=192，M=320
@@ -48,32 +46,14 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
         one_pic_result = []
         for idx, ckptdir in enumerate(ckptdir_list):
             #load model
-            if model_name == "Factorized":
-                if idx==2 or idx==3:
-                    model = Factorized(N=192, M=320).to(device)
-                else:
-                    model = Factorized().to(device)
-            
-            if model_name == "Hyperprior":
-                if idx==2 or idx==3:
-                    model = Hyperprior(entropy_bottleneck_channels=192,M=320).to(device)
-                else:
-                    model = Hyperprior(entropy_bottleneck_channels=128,M=192).to(device)
-            
-            if model_name == "JointAutoregressiveHierarchicalPriors":
-                if idx==2 or idx==3:
-                    model = JointAutoregressiveHierarchicalPriors(M=320).to(device)
-                else:
-                    model = JointAutoregressiveHierarchicalPriors(M=192).to(device)
-            
-            if model_name == "CheckerboardAutogressive":
-                if idx==2 or idx==3:
-                    model = CheckerboardAutogressive(N=192,M=320).to(device)
-                else:
-                    model = CheckerboardAutogressive(N=192,M=192).to(device)
-            
-            outdir=os.path.join(outdir_init,'lmbda_'+str(lmbda[idx]))
-            resultdir=os.path.join(resultdir_init,'lmbda_'+str(lmbda[idx]))
+            if idx <= 1:
+                model_ = getattr(model, args.model_name).to(device)
+            else:
+                model_ = getattr(model, args.model_name)(N=120, M=320).to(device)
+            # 部署熵模型到指定的设备
+            model_.entropy_bottleneck.to(args.entropy_device)
+            outdir = os.path.join(outdir_init, 'lmbda_'+str(lmbda[idx]))
+            resultdir = os.path.join(resultdir_init, 'lmbda_'+str(lmbda[idx]))
             if not os.path.exists(outdir): os.makedirs(outdir)
             if not os.path.exists(resultdir): os.makedirs(resultdir)
                 
@@ -87,8 +67,8 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
             ckpt = torch.load(ckptdir)
             print('load checkpoint from \t', ckptdir)
             # 解决多卡训练出来的模型checkpoint的key都自动加上了'module'
-            model.load_state_dict({k.replace('module.',''):v for k,v in ckpt['model'].items()})
-            coder = Coder(model=model, filename=filename)
+            model_.load_state_dict({k.replace('module.', ''): v for k, v in ckpt['model'].items()})
+            coder = Coder(model=model_, filename=filename)
 
             # postfix: lmbda index
             postfix_idx = '_lmbda'+str(lmbda[idx])
@@ -108,11 +88,11 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
 
             # bitrate
             if args.model_name == "Factorized":
-                postfix_list = ['_F.bin','_H.bin']
+                postfix_list = ['_F.bin', '_H.bin']
             elif args.model_name == "CheckerboardAutogressive":
                 postfix_list = ['_Fanchor.bin', '_Fnon_anchor.bin', '_Fz.bin', '_H.bin']
             else:
-                postfix_list = ['_Fy.bin','_Fz.bin', '_H.bin']
+                postfix_list = ['_Fy.bin', '_Fz.bin', '_H.bin']
 
             bits = np.array([os.path.getsize(filename + postfix_idx + postfix)*8 \
                                     for postfix in postfix_list])
@@ -151,7 +131,7 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
                     writer.writerow([k, v])
             print('Wrile results to: \t', csv_name)'''
            
-        tag=tag+1
+        tag = tag+1
 
         all_result = sum_dict(all_result, one_pic_result, pic_num=24, ckpt_num=len(ckptdir_list))
 
@@ -174,9 +154,9 @@ if __name__ == '__main__':
     parser.add_argument("--resultdir", default='./results')
     parser.add_argument("--dataset_path", default='/data1/liubj/kodak')
     parser.add_argument("--test_batch_size", default=1)
-    parser.add_argument("--model_name",default='Factorized',help="other implemntation: 'Hyperprior', 'JointAutoregressiveHierarchicalPriors', 'CheckerboardAutogressive'")
+    parser.add_argument("--model_name", default='Factorized',help="other implemntation: 'Hyperprior', 'JointAutoregressiveHierarchicalPriors', 'CheckerboardAutogressive'")
     parser.add_argument("--load_model_epoch",default=199,help="加载模型所对应的epoch")
-    parser.add_argument("--entropy_device",default='cpu',help="熵模型的device, 'cuda' or 'cpu'")
+    parser.add_argument("--entropy_device", default='cpu',help="熵模型的device, 'cuda' or 'cpu'")
     args = parser.parse_args()
     
     ckptdir_list = ['./ckpts/'+args.model_name+'/epoch_'+ str(args.load_model_epoch) + '_lmbda_0.0067' + '.pth', 

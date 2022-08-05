@@ -200,7 +200,7 @@ class EntropyBottleneck(EntropyBase):
         return cdf_max_1
 
     @torch.no_grad()
-    def compress(self, inputs, device='cpu'):
+    def compress(self, inputs, device='cuda'):
         #Input:[B,C,H,W]
         #量化
         values = self.quantize(inputs, mode="symbols")
@@ -214,26 +214,26 @@ class EntropyBottleneck(EntropyBase):
         minima, maxima = torch.tensor([minima]), torch.tensor([maxima])  #将minima和maxima重新封装为tensor
         
         #[channels, 1, points],points为编码值范围
-        symbols = symbols.reshape(1, 1, -1).repeat(channels, 1, 1)#.to(device)
+        symbols = symbols.reshape(1, 1, -1).repeat(channels, 1, 1).to(device)
         print(f'entropybottleneck encode device: {symbols.device}')
         pmf = self._likelihood(symbols)
         pmf = torch.clamp(pmf, min=self._likelihood_bound)
         cdf = self._pmf_to_cdf(pmf)
         cdf_expand = cdf.unsqueeze(0).unsqueeze(2)
-        out_cdf = cdf_expand.repeat(batch_size, 1, H, W, 1).to('cpu')#.cpu()
+        out_cdf = cdf_expand.repeat(batch_size, 1, H, W, 1).to('cpu')
         values_norm = values_norm.to('cpu')#.cpu() # torchac需要传入元素在CPU上
         #torchac传入两个主要参数，概率表和待编码元素，概率表out_cdf是按顺序排列的概率，格式[B,C,H,W,point]，待编码元素格式[B,C,H,W]
         strings = torchac.encode_float_cdf(out_cdf, values_norm)
         return strings, minima.cpu().numpy(), maxima.cpu().numpy()
 
     @torch.no_grad()
-    def decompress(self, strings, minima, maxima, shape):
+    def decompress(self, strings, minima, maxima, shape, device='cuda'):
         batch_size, channels, H, W = shape[:]
         symbols = torch.arange(int(minima), int(maxima+1))#类型转换numpy.int32->int32
-        symbols = symbols.reshape(1, 1, -1).repeat(channels, 1, 1).to('cpu')
+        symbols = symbols.reshape(1, 1, -1).repeat(channels, 1, 1).to(device)
         print(f'entropybottleneck decode device: {symbols.device}')
         pmf = self._likelihood(symbols)
-        pmf = torch.clamp(pmf, min=self._likelihood_bound).cpu()
+        pmf = torch.clamp(pmf, min=self._likelihood_bound)
 
         cdf = self._pmf_to_cdf(pmf)
         out_cdf = cdf.unsqueeze(0).unsqueeze(2).repeat(batch_size, 1, H, W, 1).cpu()
@@ -289,7 +289,7 @@ class GaussianConditional(EntropyBase):
         # 这里就是利用erfc的形式来计算高斯分布累积分布，整理后得到：1/2-F(x)
         return half * torch.erfc(const * inputs)
 
-    def _likelihood(self, inputs, scales, means=0):
+    def _likelihood(self, inputs, scales, means=None):
         # 实际编码时:inputs.size [B,C,H,W,points] scales.size(B,C,H,W,1) means.size(B,C,H,W,1) likelihood.size(B,C,H,W,points)
         scales = Low_bound.apply(scales,0.11) 
         values = inputs
@@ -347,7 +347,6 @@ class GaussianConditional(EntropyBase):
 
     #将概率转换为累积概率
     def _pmf_to_cdf(self, pmf):
-        l = pmf.shape[-1]
         cdf = pmf.cumsum(dim=-1)
         #第一维添加0，最后一维变成1
         spatial_dimensions = pmf.shape[:-1]+(1,)
@@ -429,15 +428,11 @@ class GaussianConditional(EntropyBase):
         symbols = torch.arange(minima, maxima+1).to(device)
         # 对编码元素做一个偏移，使其最小值为0
         values = (values-minima).to(torch.int16)
-        minima, maxima = torch.tensor([minima]), torch.tensor([maxima])
         # symbols: torch.Size([points]) -> torch.Size([1, 1, 1, 1, points]) -> (batch_size,C,H,W,points)
         # scales: torch.Size([batch_size, C, H, W])  -> (batch_size, C,H,W,1)，对应unsqueeze(-1)操作
         symbols = symbols.reshape(1, 1, 1, 1, -1).repeat(batch_size,channels, H, W, 1).to(device)
         scales = scales.to(device)
-        if means is not None: means = means.to(device)
-        # assert symbols.device == scales.device and symbols.device == means.device
-        if means is not None: pmf = self._likelihood(symbols,scales.unsqueeze(-1), means=means.unsqueeze(-1))
-        else: pmf = self._likelihood(symbols,scales.unsqueeze(-1))
+        pmf = self._likelihood(symbols, scales.unsqueeze(-1), means=means.unsqueeze(-1))
         pmf = torch.clamp(pmf, min=self._likelihood_bound)
         #pmf = F.softmax(pmf, dim=4)
         if model_name == 'JointAutoregressive':
@@ -447,13 +442,11 @@ class GaussianConditional(EntropyBase):
             values = values.squeeze(3).squeeze(2).squeeze(0).cpu()
             cdf = self._pmf_to_cdf(pmf).squeeze(3).squeeze(2).squeeze(0).cpu()
             cdf = torch.round(cdf*resolution).int()
-            start_time = time.time()
             for i in range(values.size(0)):
                 seq_list = []
                 seq_list.append(int(values[i]))
                 cdf_list = cdf[i].tolist()
                 encoder.encode(seq_list, cdf_list)
-            # print('Time0:\t', round(time.time() - start_time, 3), 's')
         else:
         # 对于hyper模型使用常规的torchac编码器编解码
             cdf = self._pmf_to_cdf(pmf).to('cpu')
@@ -473,10 +466,9 @@ class GaussianConditional(EntropyBase):
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         batch_size, channels, H, W = shape[:]
         symbols = torch.arange(minima, maxima+1).to(device)
-        symbols = symbols.reshape(1, 1, 1, 1, -1).repeat(batch_size,channels, H, W, 1)
+        symbols = symbols.reshape(1, 1, 1, 1, -1).repeat(batch_size, channels, H, W, 1)
 
-        if means != None: pmf = self._likelihood(symbols,scales.unsqueeze(-1), means.unsqueeze(-1))
-        else: pmf = self._likelihood(symbols,scales.unsqueeze(-1))
+        pmf = self._likelihood(symbols,scales.unsqueeze(-1), means.unsqueeze(-1))
         pmf = torch.clamp(pmf, min=self._likelihood_bound)
         #pmf = F.softmax(pmf, dim=4)
         if model_name == 'JointAutoregressive':
