@@ -46,7 +46,7 @@ class TrainingConfig():
 def set_optimizer(model, lr):
         params_lr_list = []
         for module_name in model._modules.keys():
-            params_lr_list.append({"params":model._modules[module_name].parameters(), 'lr':lr})
+            params_lr_list.append({"params": model._modules[module_name].parameters(), 'lr':lr})
         optimizer = torch.optim.Adam(params_lr_list)
 
         return optimizer

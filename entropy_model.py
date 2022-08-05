@@ -183,7 +183,6 @@ class EntropyBottleneck(EntropyBase):
         #转化为输入维度
         outputs = outputs.reshape(shape)
         outputs = outputs.permute(*inv_perm).contiguous()
-
         likelihood = likelihood.reshape(shape)
         likelihood = likelihood.permute(*inv_perm).contiguous()
         return outputs, likelihood

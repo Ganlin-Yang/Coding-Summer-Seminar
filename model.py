@@ -160,7 +160,7 @@ class Hyperprior(nn.Module):
     def compress(self, x):
         y = self.g_a(x)
         z = self.h_a(torch.abs(y))
-        z_strings,z_minima,z_maxima = self.entropy_bottleneck.compress(z)
+        z_strings, z_minima, z_maxima = self.entropy_bottleneck.compress(z)
         z_hat = self.entropy_bottleneck.decompress(z_strings, z_minima,z_maxima,z.shape).to(x.device)
 
         scales_hat = self.h_s(z_hat)
