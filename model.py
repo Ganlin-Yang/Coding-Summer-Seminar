@@ -49,8 +49,7 @@ class Factorized(nn.Module):
     
     def compress(self, x):
         y = self.g_a(x)
-        self.entropy_bottleneck.to('cpu')
-        y_strings,y_minima,y_maxima= self.entropy_bottleneck.compress(y)
+        y_strings,y_minima,y_maxima = self.entropy_bottleneck.compress(y)
         return {"strings": y_strings, "shape": y.shape,"scope":[y_minima,y_maxima]}
 
     def decompress(self, strings, minima,maxima,shape):
@@ -161,12 +160,10 @@ class Hyperprior(nn.Module):
     def compress(self, x):
         y = self.g_a(x)
         z = self.h_a(torch.abs(y))
-        self.entropy_bottleneck.cpu()
         z_strings,z_minima,z_maxima = self.entropy_bottleneck.compress(z)
         z_hat = self.entropy_bottleneck.decompress(z_strings, z_minima,z_maxima,z.shape).to(x.device)
 
         scales_hat = self.h_s(z_hat)
-        self.gaussian_conditional.cpu()
         y_strings,y_minima,y_maxima = self.gaussian_conditional.compress(y,scales_hat,model_name='Hyperprior')
         return {"strings": [y_strings, z_strings], "shape":[y.shape,z.shape],"y_scope":[y_minima,y_maxima],"z_scope":[z_minima,z_maxima]}
 
@@ -180,8 +177,6 @@ class Hyperprior(nn.Module):
         z_hat = self.entropy_bottleneck.decompress(strings[1], z_minima,z_maxima,z_shape).to(device)
         scales_hat = self.h_s(z_hat)
         y_hat = self.gaussian_conditional.decompress(strings[0],y_minima,y_maxima,y_shape,scales_hat, dequantize_dtype=z_hat.dtype,model_name='Hyperprior').to(device)
-        # print("y_hat shape ",y_hat.shape)
-        # print(y_shape)
         x_hat = self.g_s(y_hat).clamp_(0, 1)
         return x_hat
 
@@ -383,15 +378,15 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
         # 在H和W这两个维度上做填充，上下左右各填充paddings，后面掩码卷积从第一个元素开始估计均值（不填充行和列的前后kernal_size/2个元素没法被估计）
         y_hat = F.pad(y, (padding, padding, padding, padding))
         # y.size(0) = B， test: default=1
-        y_minima, y_maxima = self.compress_serial(
-            y_hat,
-            params,
-            y_height,
-            y_width,
-            kernel_size,
-            padding,
-            filepath,
-         )
+        # y_minima, y_maxima = self.compress_serial(
+        #     y_hat,
+        #     params,
+        #     y_height,
+        #     y_width,
+        #     kernel_size,
+        #     padding,
+        #     filepath,
+        #  )
         y_minima, y_maxima = self.compress_pa(y_q, params, filepath)
         return {"strings": z_strings, "shape": [y.shape, z.shape], "y_scope":[y_minima, y_maxima], "z_scope":[z_minima, z_maxima],
         }
@@ -407,9 +402,7 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
         )
         scales_hat, means_hat = gaussian_params.chunk(2, 1)
         y_hat = self.gaussian_conditional.quantize( y,mode="quantize")
-        # print(self.context_prediction.weight*self.context_prediction.mask)
         encoder = RangeEncoder(filepath)
-        # print(f'ctx_p[:, :, 0, 1]:{ctx_params[:, :, 0, 1]}')
         for i in tqdm(range(height)):
             for j in range(width):
                 minima, maxima = self.gaussian_conditional.compress(y_hat[:, :, i:i+1, j:j+1], 
@@ -442,7 +435,6 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
                     masked_weight,
                     bias=self.context_prediction.bias,
                 )
-                # print(f'ctx_p:{ctx_p.squeeze(3).squeeze(2)}')
                 # ctx_p.shape=[1, 2M, 1, 1], p.shape=[1, 2M, 1, 1]
                 p = params[:, :, i:i+1, j:j+1]
                 gaussian_params = self.entropy_parameters(torch.cat((p, ctx_p), dim=1))
@@ -486,7 +478,6 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
         )
         # 去除为了使用掩码卷积而增加的padding
         y_hat = F.pad(y_hat, (-padding, -padding, -padding, -padding))
-        # print(f'y_hat[:,:,0,1]: {y_hat[:, :, 0, 1]}')
         x_hat = self.g_s(y_hat).clamp_(0, 1)
         return x_hat 
 
@@ -507,7 +498,6 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
                     masked_weight,
                     bias = self.context_prediction.bias,
                 )
-                # print(f'ctx_p:{ctx_p.squeeze(3).squeeze(2)}')
                 p = params[:, :, i:i+1, j:j+1]
                 gaussian_params = self.entropy_parameters(torch.cat((p, ctx_p), dim=1))
                 scales_hat, means_hat = gaussian_params.chunk(2, 1)
@@ -689,7 +679,6 @@ class CheckerboardAutogressive(JointAutoregressiveHierarchicalPriors):
         batch_size, channel, x_height, x_width = x.shape
         y = self.g_a(x)
         z = self.h_a(y)
-        self.entropy_bottleneck.to("cpu")
         z_strings,z_minima,z_maxima = self.entropy_bottleneck.compress(z)
         #z_hat = self.entropy_bottleneck.decompress(z_strings, z.size()[-2:])
         z_hat = torch.round(z)
