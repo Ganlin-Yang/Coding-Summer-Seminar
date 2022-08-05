@@ -237,16 +237,31 @@ def plot_test_curve():
 
 def para_num():
     model_name = ["Factorized","Hyperprior","JointAutoregressiveHierarchicalPriors","CheckerboardAutogressive"]
-    para_dict = {}
+    param_dict = {}
+    macs_dict = {}
+
+    # # sum parameters method
+    # for i in range(len(model_name)):
+    #     _model = getattr(model, model_name[i])()
+    #     para = sum(x.numel() for x in _model.parameters())
+    #     param_dict[model_name[i]] = para
+    
+    # print(param_dict)
+
     for i in range(len(model_name)):
         _model = getattr(model, model_name[i])()
-        para = sum(x.numel() for x in _model.parameters())
-        para_dict[model_name[i]] = para
-    
-    print(para_dict)
+        imput = torch.randn(1,3,512,768)
+        macs, params = thop.profile(_model, inputs=(imput,))
+        param_dict[model_name[i]] = params
+        macs_dict[model_name[i]] = params
+        print('macs:', macs)
+        print('params:', params)
 
-    with open('./statistics/para_num.csv', 'w') as f:  
-                writer = csv.writer(f)
-                for k, v in para_dict.items():
-                    writer.writerow([k, v])
-    print('Wrile para_dict to: ./statistics/para_num.csv')
+    with open('./statistics/param_num.csv', 'w') as f:  
+        writer = csv.writer(f)
+        for k, v in param_dict.items():
+            writer.writerow([k, v])
+    with open('./statistics/macs_num.csv', 'w') as f:  
+        writer = csv.writer(f)
+        for k, v in macs_dict.items():
+            writer.writerow([k, v])
