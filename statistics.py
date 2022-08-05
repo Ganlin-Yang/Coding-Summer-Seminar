@@ -253,7 +253,7 @@ def para_num():
         imput = torch.randn(1,3,512,768)
         macs, params = thop.profile(_model, inputs=(imput,))
         param_dict[model_name[i]] = params
-        macs_dict[model_name[i]] = params
+        macs_dict[model_name[i]] = macs
         print('macs:', macs)
         print('params:', params)
 
@@ -265,3 +265,4 @@ def para_num():
         writer = csv.writer(f)
         for k, v in macs_dict.items():
             writer.writerow([k, v])
+
