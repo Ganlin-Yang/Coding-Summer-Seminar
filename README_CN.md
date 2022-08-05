@@ -12,11 +12,11 @@
 
 ![FactorizedPrior](./Image4md/factorized_prior.png)
 
-其中，x和$\hat{x}$分别是原图像和重建图像，$g_a$、$g_s$和$g_p$分别表示分析变换（编码）、综合变换（解码）和感知域变换。在具体实现中，$g_a$和$g_s$结构对称，主要由卷积层和GDN层（Generalized Divisive Normalization）交替拼接而成。
+其中，x和$\hat{x}$分别是原图像和重建图像，$g_a$、$g_s$和$g_p$分别表示分析变换（编码）、综合变换（解码）和感知域变换。在具体实现中，$g_a$ 和$g_s$ 结构对称，主要由卷积层和GDN层（Generalized Divisive Normalization）交替拼接而成。
 
 ![FactorizedPrior_network](Image4md/factorized_network.png)
 
-上图展示了$g_a$和$g_s$的变换步骤，并注明了每层需要优化的参数量，而分析变换和综合变换各自所需要优化的参数集合记为$\phi$和$\theta$，对应$y=g_a(x;\theta)$和$\hat{x}=g_s(\hat{y};\theta)$。
+上图展示了$g_a$和$g_s$的变换步骤，并注明了每层需要优化的参数量，而分析变换和综合变换各自所需要优化的参数集合记为$\phi$和$\theta$，对应 $y=g_a(x;\theta)$ 和$\hat{x}=g_s(\hat{y};\theta)$。
 
 #### 1.1.2 Our work
 
@@ -31,8 +31,104 @@
 
 ![our_test](./Image4md/our_factorized_prior_test.png)
 
-### 1.2 Hyperprior
 
+#### 1.1.3 单变量非参数概率密度模型
+在该工作中，我们使用多变量的非参数概率模型对隐藏层变量进行建模，在此以单变量的简单情形说明该概率模型的基本原理。
+
+首先定义概率密度$p$和累积概率密度$c$，并被分解为以下形式
+$$
+\begin{equation}
+c=f_{K} \circ f_{K-1} \cdots f_{1}
+\end{equation}
+$$
+
+$$
+\begin{equation}
+p=f_{K}^{\prime} \cdot f_{K-1}^{\prime} \cdots f_{1}^{\prime}
+\end{equation}
+$$
+
+其中，$f_K$为矩阵$\mathbb{R}^{d_k}\to\mathbb{R}^{r_k}$，而$f'_K$为$f_K$的一阶偏导（雅各比矩阵），$\circ$表示矩阵乘法。此处，为保证概率密度服从定义（位于0-1之间的非负数），要求雅各比矩阵的元素为非负数。
+
+$f_k$被设计为如下的形式
+$$
+f_{k}(\boldsymbol{x})=g_{k}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
+\quad\quad1 \leq k<K\\
+$$
+
+$$
+f_{k}(\boldsymbol{x})=\text{sigmoid}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right)
+\quad\quad  k=K
+$$
+
+其中的$g_k$被设计为如下形式
+$$
+g_{k}(\boldsymbol{x})=\boldsymbol{x}+\boldsymbol{a}^{(k)} \odot \tanh (\boldsymbol{x})
+$$
+其中，$\odot$表示elementwise乘法，$a^{(k)}$的正负可用来控制是否伸缩零值附近的空间。
+
+整体的运算如下所示
+$$
+\begin{aligned}
+f_{k}^{\prime}(\boldsymbol{x}) &=\operatorname{diag} g_{k}^{\prime}\left(\boldsymbol{H}^{(k)} \boldsymbol{x}+\boldsymbol{b}^{(k)}\right) \cdot \boldsymbol{H}^{(k)} \\
+g_{k}^{\prime}(\boldsymbol{x}) &=1+\boldsymbol{a}^{(k)} \odot \tanh ^{\prime}(\boldsymbol{x}) \\
+f_{K}^{\prime}(\boldsymbol{x}) &=\operatorname{sigmoid}^{\prime}\left(\boldsymbol{H}^{(K)} \boldsymbol{x}+\boldsymbol{b}^{(K)}\right) \cdot \boldsymbol{H}^{(K)}
+\end{aligned}
+$$
+此处为限制雅各比矩阵非负以及$a^{(k)}$大于-1，需要进行参数重整：
+$$
+\begin{aligned}
+\boldsymbol{H}^{(k)} &=\operatorname{softplus}\left(\hat{\boldsymbol{H}}^{(k)}\right) \\
+\boldsymbol{a}^{(k)} &=\tanh \left(\hat{\boldsymbol{a}}^{(k)}\right)
+\end{aligned}
+$$
+下图展示了本文使用三层的非参数概率密度模型$p$拟合一个混合高斯分布，并实现了很好的拟合效果，灰色线条展示了拟合的收敛过程
+
+![image-20220702153547345](./Image4md/factorizedPrior.png)
+
+在本文中，始终设置K=4，并实现了和分段线性函数一样好的性能，同时归于基于自动微分器实现该操作更加友好。
+
+### 1.2 Hyperprior
+该小节复现了[Variational Image Compression with a scale hyperprior]()，该工作沿袭FactorizedPrior的工作，提出了描述图像边信息的HyperPrior，并基于HyperPrior将隐藏层变量$y$建模为均值为零、方差为$\sigma$的高斯分布，从而实现了概率模型随图片内容的动态调整。
+
+
+#### 1.2.1 Previous Work
+
+研究人员首先进行了预实验，将Factorized Prior的工作的隐藏层变量$y$可视化（左2），并将HyperPrior预测的方差（右2）和经过去除方差后的隐藏层变量$y$可视化，结果如下图所示；
+
+![](./Image4md/side_information.png)
+
+可见，1）factorized prior确实没有完全学习到部分纹理和边缘信息，从而不能完全去除离散信号的空间耦合；2）去除空间耦合后的$\hat{y}$基本服从$\mathcal{N}(0,I)$。
+
+基于这种观察，研究人员提出了带有HyperPrior的端到端图像压缩框架
+
+![](./Image4md/hyperPrior.png)
+
+具体操作是在latent representation \hat{y}上又进行了一次编解码，得到\hat{z}，该过程的formulation可表示为：
+
+$$
+\begin{equation}
+\begin{aligned}
+\mathbb{E}_{\boldsymbol{x} \sim p_{\boldsymbol{x}}} D_{\mathrm{KL}}\left[q \| p_{\tilde{\boldsymbol{y}}, \tilde{\boldsymbol{z}} \mid \boldsymbol{x}}\right]=\mathbb{E}_{\boldsymbol{x} \sim p_{\boldsymbol{x}}} \mathbb{E}_{\tilde{\boldsymbol{y}}, \tilde{\boldsymbol{z}} \sim q}\left[\log q(\tilde{\boldsymbol{y}}, \tilde{\boldsymbol{z}} \mid \boldsymbol{x})-\log p_{\boldsymbol{x} \mid \tilde{\boldsymbol{y}}}(\boldsymbol{x} \mid \tilde{\boldsymbol{y}})\right.\\
+\left.-\log p_{\tilde{\boldsymbol{y}} \mid \tilde{\boldsymbol{z}}}(\tilde{\boldsymbol{y}} \mid \tilde{\boldsymbol{z}})-\log p_{\tilde{\boldsymbol{z}}}(\tilde{\boldsymbol{z}})\right]+\text { const. }
+\end{aligned}
+\end{equation}
+$$
+
+值得注意的是，通道数需要根据任务的复杂程度进行手动调节，在文章中，研究人员推荐，对于5个低$\lambda$值，$N=128\quad M=192$，对于3个高$\lambda$值，$N=192\quad M=320$.
+
+#### 1.2.2 Our work
+
+与FactorizedPrior类似，我们仍然使用torchac作为熵编码器，与之类似，我们在码流中增加了针对隐藏层变量$\hat{z}$的码流和符号位。
+
+本项目所设计的训练框架如下图所示
+
+![scaleHyperPrior](./Image4md/scaleHyper.jpg)
+
+损失函数设计为
+$$
+Loss=\sum_i{p_{\hat{y}_i}}(\hat{y}_i)+\sum_j{p_{\hat{z}_j}}(\hat{z}_j)+\lambda d(x,\hat{x})
+$$
 
 
 ### 1.3 Joint Autoregressive Hierarchical Priors
