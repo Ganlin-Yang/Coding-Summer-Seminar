@@ -43,27 +43,28 @@
 
 
 
-## Part 2: Training/Testing Process
+## 第二部分： 训练/测试过程
 
-### 2.1 Training process
+### 2.1 训练过程
 
-For training, we used the vimeo-90k dataset, and randomly cropped the pictures with the size of 256×256. Models were trained with a batch size of 64, optimized using Adam. The loss function is set as: 
+对于训练，我们使用vimeo-90k数据集，在训练时对数据集图像进行尺寸为256×256的随机裁剪，batch size大小为64，并使用Adam优化器。损失函数设置为：
 $$
 Loss=\lambda*255^2*D+R
 $$
-where D denotes mean-square error(MSE), R denotes the estimated code rate, and λ is set as:
+其中D为均方误差(MSE)，R为估计的码率，λ设置为：
+
 $$
 \lambda\in{0.0067,\ 0.013,\ 0.025,\ 0.0483}
 $$
-As for Hyperprior models and Factorized models, the neural networks' channel number N is set as 128 and M is set as 192 for two lower-rate models; N is set as 192 and M is set as 320 for two higher-rate models. As for JointAutoregressive models and CheckerboardAutogressive models, the neural networks' channel number N is set as 192 and M is set as 192 for two lower-rate models; N is set as 192 and M is set as 320 for two higher-rate models.
+对于Hyperprior和Factorized模型，两个低码率点我们设置神经网络的通道数N=128，M=192；两个高码率点我们设置N=192，M=320。对于Joint Autoregressive和Checkerboard Autogressive模型，两个低码率点我们设置神经网络的通道数N=192，M=192；两个高码率点我们设置N=192，M=320。
 
-Due to lack of experience with deep learning training, we tried different kinds of ways to adjust the learning rate and epoch number. First, as for Hyperprior models, we used the `lr_scheduler.MultiStepLR` method in the `torch.optim` package, and set milestones=[40, 90, 140] (epochs). This method allows the learning rate begins with a value of 1e-4, and divided by 2 when meet the milestones. As for Factorized models, we used `lr_scheduler.ReduceLROnPlateau` method, letting the learning rate reduce by half when loss has stopped reducing. Above Hyperprior models and Factorized models were trained for 200 epochs.
+由于缺乏对深度学习训练的经验，我们尝试了多种调整学习率的方式和epoch数。首先对于Hyperprior模型，我们使用`torch.optim`库中的`lr_scheduler.MultiStepLR`学习率调整策略，设置milestones=[40, 90, 140] (epoch数)，让学习率从1e-4开始，逐次递减为原来的0.5倍。对于Factorized模型的两个高码率点，我们依旧使用上述策略；对于两个低码率点，我们使用`lr_scheduler.ReduceLROnPlateau`学习率调整策略，让学习率从1e-4开始，当loss不再下降时自适应调整为原来的0.5倍。以上Hyperprior和Factorized模型的训练均设置epoch数为200。
 
-After trying `lr_scheduler.ReduceLROnPlateau` method more powerful, as for JointAutoregressive models and CheckerboardAutogressive models' training, we all used this method for learning rate adjustment. These models were trained for 250 epochs.
+在尝试`lr_scheduler.ReduceLROnPlateau`学习率调整策略较为有效后，对于Joint Autoregressive和Checkerboard Autoregressive模型的训练，我们均使用该方法进行学习率的调整，并将epoch数设为250。
 
-The command for training is as below:
+模型训练的命令为：
 
-```py
+```python
 python train.py 
 --dataset # path to training dataset
 --test_dataset # path to testing dataset
@@ -76,41 +77,44 @@ python train.py
 --exp_version # experiment version ID, assign a different value each training time to aviod overwrite
 --gpu_id # pass '0 1 2' for 3 gpus as example, pass '0' for single gpu 
 --code_rate # choose from 'low' or 'high'
+
 ```
 
-### 2.2 Testing process
 
-To test Factorized models:
+
+### 2.2 测试过程
+
+Factorized模型的测试命令行为：
 
 ```python
 python test.py --model_name Factorized --epoch_num 199
 ```
 
-To test Hyperprior models:
+Hyperprior模型的测试命令行为：
 
 ```python
 python test.py --model_name Hyperprior --epoch_num 199
 ```
 
-To test JointAutoregressive models:
+JointAutoregressive模型的测试命令行为：
 
 ```python
 python test.py --model_name JointAutoregressiveHierarchicalPriors --epoch_num 249
 ```
 
-To test CheckerboardAutogressive models:
+CheckerboardAutogressive模型的测试命令行为：
 
 ```python
 python test.py --model_name CheckerboardAutogressive --epoch_num 249
 ```
 
-## Part 3: Testing results
+## 第三部分： 测试结果
 
-The reproduced RD-curve is plotted below:
+我们复现出来的R-D曲线如下所示：
 
-![./statistics/R-D_Curve_full.jpg]()
+![R-D_Curve_full](statistics/R-D_Curve_full.jpg)
 
-Specifically, the Factorized models' detailed results are recorded as:
+Factorized模型的具体结果如下表所示：
 
 | lmbda  | num_pixels | bits     | bpp      | psnr     | time(enc) | time(dec) |
 | ------ | ---------- | -------- | -------- | -------- | --------- | --------- |
@@ -119,7 +123,7 @@ Specifically, the Factorized models' detailed results are recorded as:
 | 0.025  | 393216     | 255458   | 0.650125 | 31.84871 | 0.383417  | 0.357583  |
 | 0.0483 | 393216     | 364205.3 | 0.92675  | 33.6627  | 0.230708  | 0.234292  |
 
-The Hyperprior models' detailed results are recorded as:
+Hyperprior模型的具体结果如下表所示：
 
 | lmbda  | num_pixels | bits     | bpp      | psnr     | time(enc) | time(dec) |
 | ------ | ---------- | -------- | -------- | -------- | --------- | --------- |
@@ -128,9 +132,9 @@ The Hyperprior models' detailed results are recorded as:
 | 0.025  | 393216     | 240186.3 | 0.610958 | 32.97386 | 1.117917  | 0.772125  |
 | 0.0483 | 393216     | 335234.7 | 0.852583 | 34.73847 | 1.202125  | 1.087917  |
 
-## Part 4: Model Complexity
+## 第四部分：模型复杂度
 
-We use ***thop*** package to calculate model parameters(Params) and Multiply–Accumulate Operations(MACs) :
+我们使用***thop***库测试模型的参数量 (Params)以及乘加累积操作数(MACs), 测量结果如下：
 
 | Methods                                  | Params  | MACs     |
 | ---------------------------------------- | ------- | -------- |
