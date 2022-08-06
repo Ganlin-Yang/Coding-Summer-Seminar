@@ -825,7 +825,6 @@ class CheckerboardAutogressive(JointAutoregressiveHierarchicalPriors):
             z_len_minima = np.frombuffer(fin.read(1), dtype=np.int8)[0]
             z_minima = np.frombuffer(fin.read(4 * z_len_minima), dtype=np.float32)[0]
             z_maxima = np.frombuffer(fin.read(4 * z_len_minima), dtype=np.float32)[0]
-
             y_shape = np.frombuffer(fin.read(4 * 4), dtype=np.int32)
             y_len_minima = np.frombuffer(fin.read(1), dtype=np.int8)[0]
             an_minima = np.frombuffer(fin.read(4 * y_len_minima), dtype=np.float32)[0]

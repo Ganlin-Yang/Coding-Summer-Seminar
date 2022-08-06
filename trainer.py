@@ -18,11 +18,11 @@ class Trainer():
         self.epoch = 0
         self.iteration = 0
         self.writer = SummaryWriter(config.logdir)
-        self.record_set = {'bpp':[],'mse':[],'sum_loss':[]}
+        self.record_set = {'bpp': [], 'mse': [], 'sum_loss':[]}
 
     def getlogger(self, logdir):
         logger = logging.getLogger(__name__)
-        logger.setLevel(level = logging.INFO)
+        logger.setLevel(level=logging.INFO)
         handler = logging.FileHandler(os.path.join(logdir, 'log.txt'))
         handler.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s: %(message)s', datefmt='%m/%d %H:%M:%S')

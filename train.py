@@ -57,7 +57,6 @@ def set_optimizer(model, lr):
 
     return optimizer
 
-
 if __name__ == '__main__':
     # log
     args = parse_args()

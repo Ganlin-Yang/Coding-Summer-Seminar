@@ -14,7 +14,7 @@ from tqdm import tqdm
 from data_utils import write_image, crop, cal_psnr
 from statistics import plot_RDCurve, sum_dict, get_item, para_num
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 @torch.no_grad()

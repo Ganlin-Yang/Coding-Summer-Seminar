@@ -243,7 +243,6 @@ class EntropyBottleneck(EntropyBase):
         values = torchac.decode_float_cdf(out_cdf, strings)
         values = values.float()
         values += minima
-
         return values
 
 
