@@ -14,13 +14,11 @@ from tqdm import tqdm
 from data_utils import write_image, crop, cal_psnr
 from statistics import plot_RDCurve, sum_dict, get_item, para_num
 
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 @torch.no_grad()
 def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorized'):
     # load data
-    assert model_name in ["Factorized", "Hyperprior", "JointAutoregressiveHierarchicalPriors",
-                          "CheckerboardAutogressive"]
+    assert model_name in ["Factorized", "Hyperprior", "JointAutoregressiveHierarchicalPriors", "CheckerboardAutogressive"]
+
     # 对于Factorized，前两个低码率点N=128，M=192，后两个高码率点N=192，M=320
     # 对于Hyperprior，前两个低码率点N=128，M=192，后两个高码率点N=192，M=320
     # 对于JointAutoregressiveHierarchicalPriors，前两个低码率点N=M=192，后两个高码率点N=192，M=320
@@ -46,15 +44,19 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
         num_pixel = H * W
         one_pic_result = []
         for idx, ckptdir in enumerate(ckptdir_list):
+
             # load model
+
             if idx <= 1:
                 model_ = getattr(model, args.model_name).to(device)
             else:
                 model_ = getattr(model, args.model_name)(N=120, M=320).to(device)
             # 部署熵模型到指定的设备
             model_.entropy_bottleneck.to(args.entropy_device)
-            outdir = os.path.join(outdir_init, 'lmbda_' + str(lmbda[idx]))
-            resultdir = os.path.join(resultdir_init, 'lmbda_' + str(lmbda[idx]))
+
+            outdir = os.path.join(outdir_init, 'lmbda_'+str(lmbda[idx]))
+            resultdir = os.path.join(resultdir_init, 'lmbda_'+str(lmbda[idx]))
+
             if not os.path.exists(outdir): os.makedirs(outdir)
             if not os.path.exists(resultdir): os.makedirs(resultdir)
 
@@ -155,10 +157,11 @@ if __name__ == '__main__':
     parser.add_argument("--resultdir", default='./results')
     parser.add_argument("--dataset_path", default='/data1/liubj/kodak')
     parser.add_argument("--test_batch_size", default=1)
-    parser.add_argument("--model_name", default='Factorized',
-                        help="other implemntation: 'Hyperprior', 'JointAutoregressiveHierarchicalPriors', 'CheckerboardAutogressive'")
-    parser.add_argument("--load_model_epoch", default=199, help="加载模型所对应的epoch")
-    parser.add_argument("--entropy_device", default='cpu', help="熵模型的device, 'cuda' or 'cpu'")
+
+    parser.add_argument("--model_name", default='Factorized',help="other implemntation: 'Hyperprior', 'JointAutoregressiveHierarchicalPriors', 'CheckerboardAutogressive'")
+    parser.add_argument("--load_model_epoch",default=199,help="加载模型所对应的epoch")
+    parser.add_argument("--entropy_device", default='cpu',help="熵模型的device, 'cuda' or 'cpu'")
+
     args = parser.parse_args()
 
     ckptdir_list = ['./ckpts/' + args.model_name + '/epoch_' + str(args.load_model_epoch) + '_lmbda_0.0067' + '.pth',

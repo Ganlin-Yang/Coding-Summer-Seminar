@@ -50,8 +50,10 @@ class Factorized(nn.Module):
 
     def compress(self, x):
         y = self.g_a(x)
-        y_strings, y_minima, y_maxima = self.entropy_bottleneck.compress(y)
-        return {"strings": y_strings, "shape": y.shape, "scope": [y_minima, y_maxima]}
+
+        y_strings,y_minima,y_maxima = self.entropy_bottleneck.compress(y)
+        return {"strings": y_strings, "shape": y.shape,"scope":[y_minima,y_maxima]}
+
 
     def decompress(self, strings, minima, maxima, shape):
         y_hat = self.entropy_bottleneck.decompress(strings, minima, maxima, shape).to(device)
@@ -161,12 +163,13 @@ class Hyperprior(nn.Module):
         y = self.g_a(x)
         z = self.h_a(torch.abs(y))
         z_strings, z_minima, z_maxima = self.entropy_bottleneck.compress(z)
-        z_hat = self.entropy_bottleneck.decompress(z_strings, z_minima, z_maxima, z.shape).to(x.device)
+
+        z_hat = self.entropy_bottleneck.decompress(z_strings, z_minima,z_maxima,z.shape).to(x.device)
 
         scales_hat = self.h_s(z_hat)
-        y_strings, y_minima, y_maxima = self.gaussian_conditional.compress(y, scales_hat, model_name='Hyperprior')
-        return {"strings": [y_strings, z_strings], "shape": [y.shape, z.shape], "y_scope": [y_minima, y_maxima],
-                "z_scope": [z_minima, z_maxima]}
+        y_strings,y_minima,y_maxima = self.gaussian_conditional.compress(y,scales_hat,model_name='Hyperprior')
+        return {"strings": [y_strings, z_strings], "shape":[y.shape,z.shape],"y_scope":[y_minima,y_maxima],"z_scope":[z_minima,z_maxima]}
+
 
     @torch.no_grad()
     def decompress(self, strings, shape, y_scope, z_scope):
@@ -177,8 +180,9 @@ class Hyperprior(nn.Module):
         z_minima, z_maxima = z_scope
         z_hat = self.entropy_bottleneck.decompress(strings[1], z_minima, z_maxima, z_shape).to(device)
         scales_hat = self.h_s(z_hat)
-        y_hat = self.gaussian_conditional.decompress(strings[0], y_minima, y_maxima, y_shape, scales_hat,
-                                                     dequantize_dtype=z_hat.dtype, model_name='Hyperprior').to(device)
+
+        y_hat = self.gaussian_conditional.decompress(strings[0],y_minima,y_maxima,y_shape,scales_hat, dequantize_dtype=z_hat.dtype,model_name='Hyperprior').to(device)
+
         x_hat = self.g_s(y_hat).clamp_(0, 1)
         return x_hat
 
@@ -403,7 +407,9 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
             torch.cat((params, ctx_params), dim=1)
         )
         scales_hat, means_hat = gaussian_params.chunk(2, 1)
+
         y_hat = self.gaussian_conditional.quantize(y, mode="quantize")
+
         encoder = RangeEncoder(filepath)
         for i in tqdm(range(height)):
             for j in range(width):
@@ -501,7 +507,9 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
                     masked_weight,
                     bias=self.context_prediction.bias,
                 )
-                p = params[:, :, i:i + 1, j:j + 1]
+
+                p = params[:, :, i:i+1, j:j+1]
+
                 gaussian_params = self.entropy_parameters(torch.cat((p, ctx_p), dim=1))
                 scales_hat, means_hat = gaussian_params.chunk(2, 1)
                 channel_value = self.gaussian_conditional.decompress(
@@ -679,8 +687,10 @@ class CheckerboardAutogressive(JointAutoregressiveHierarchicalPriors):
         batch_size, channel, x_height, x_width = x.shape
         y = self.g_a(x)
         z = self.h_a(y)
+
         z_strings, z_minima, z_maxima = self.entropy_bottleneck.compress(z)
         # z_hat = self.entropy_bottleneck.decompress(z_strings, z.size()[-2:])
+
         z_hat = torch.round(z)
 
         params = self.h_s(z_hat)

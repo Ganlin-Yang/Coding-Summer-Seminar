@@ -54,10 +54,12 @@ class Trainer():
     def record(self, main_tag, global_step):
         # print record
         self.logger.info('='*10+main_tag + ' Epoch ' + str(self.epoch) + ' Step: ' + str(global_step))
+        
         for k, v in self.record_set.items():
             self.record_set[k] = np.mean(np.array(v), axis=0)
         for k, v in self.record_set.items():
             self.logger.info(k+': '+str(np.round(v, 4).tolist()))
+
         # return zero
         for k in self.record_set.keys():
             self.record_set[k] = []

@@ -204,8 +204,8 @@ class EntropyBottleneck(EntropyBase):
 
     @torch.no_grad()
     def compress(self, inputs, device='cuda'):
-        # Input:[B,C,H,W]
-        # 量化
+        #Input:[B,C,H,W]
+        #量化
         values = self.quantize(inputs, mode="symbols")
         batch_size, channels, H, W = values.shape[:]
         # 获得编码范围内所有字符的概率值
@@ -213,10 +213,12 @@ class EntropyBottleneck(EntropyBase):
         maxima = values.max().detach().float()
         symbols = torch.arange(minima, maxima + 1)
         # 对编码元素做一个偏移，从0开始
-        values_norm = (values - minima).to(torch.int16)
-        minima, maxima = torch.tensor([minima]), torch.tensor([maxima])  # 将minima和maxima重新封装为tensor
+        
+        values_norm = (values-minima).to(torch.int16)
+        minima, maxima = torch.tensor([minima]), torch.tensor([maxima])  #将minima和maxima重新封装为tensor
+        
+        #[channels, 1, points],points为编码值范围
 
-        # [channels, 1, points],points为编码值范围
         symbols = symbols.reshape(1, 1, -1).repeat(channels, 1, 1).to(device)
         print(f'entropybottleneck encode device: {symbols.device}')
         pmf = self._likelihood(symbols)
@@ -224,15 +226,19 @@ class EntropyBottleneck(EntropyBase):
         cdf = self._pmf_to_cdf(pmf)
         cdf_expand = cdf.unsqueeze(0).unsqueeze(2)
         out_cdf = cdf_expand.repeat(batch_size, 1, H, W, 1).to('cpu')
-        values_norm = values_norm.to('cpu')  # .cpu() # torchac需要传入元素在CPU上
-        # torchac传入两个主要参数，概率表和待编码元素，概率表out_cdf是按顺序排列的概率，格式[B,C,H,W,point]，待编码元素格式[B,C,H,W]
+
+        values_norm = values_norm.to('cpu')#.cpu() # torchac需要传入元素在CPU上
+        #torchac传入两个主要参数，概率表和待编码元素，概率表out_cdf是按顺序排列的概率，格式[B,C,H,W,point]，待编码元素格式[B,C,H,W]
+
         strings = torchac.encode_float_cdf(out_cdf, values_norm)
         return strings, minima.cpu().numpy(), maxima.cpu().numpy()
 
     @torch.no_grad()
     def decompress(self, strings, minima, maxima, shape, device='cuda'):
         batch_size, channels, H, W = shape[:]
-        symbols = torch.arange(int(minima), int(maxima + 1))  # 类型转换numpy.int32->int32
+
+        symbols = torch.arange(int(minima), int(maxima+1))#类型转换numpy.int32->int32
+
         symbols = symbols.reshape(1, 1, -1).repeat(channels, 1, 1).to(device)
         print(f'entropybottleneck decode device: {symbols.device}')
         pmf = self._likelihood(symbols)
@@ -433,7 +439,9 @@ class GaussianConditional(EntropyBase):
         maxima = values.max().detach().float()
         symbols = torch.arange(minima, maxima + 1).to(device)
         # 对编码元素做一个偏移，使其最小值为0
-        values = (values - minima).to(torch.int16)
+
+        values = (values-minima).to(torch.int16)
+
         # symbols: torch.Size([points]) -> torch.Size([1, 1, 1, 1, points]) -> (batch_size,C,H,W,points)
         # scales: torch.Size([batch_size, C, H, W])  -> (batch_size, C,H,W,1)，对应unsqueeze(-1)操作
         symbols = symbols.reshape(1, 1, 1, 1, -1).repeat(batch_size, channels, H, W, 1).to(device)
@@ -447,7 +455,9 @@ class GaussianConditional(EntropyBase):
             resolution = 1e+5
             values = values.squeeze(3).squeeze(2).squeeze(0).cpu()
             cdf = self._pmf_to_cdf(pmf).squeeze(3).squeeze(2).squeeze(0).cpu()
-            cdf = torch.round(cdf * resolution).int()
+
+            cdf = torch.round(cdf*resolution).int()
+
             for i in range(values.size(0)):
                 seq_list = []
                 seq_list.append(int(values[i]))
@@ -472,10 +482,12 @@ class GaussianConditional(EntropyBase):
         else:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         batch_size, channels, H, W = shape[:]
-        symbols = torch.arange(minima, maxima + 1).to(device)
+
+        symbols = torch.arange(minima, maxima+1).to(device)
         symbols = symbols.reshape(1, 1, 1, 1, -1).repeat(batch_size, channels, H, W, 1)
 
-        pmf = self._likelihood(symbols, scales.unsqueeze(-1), means.unsqueeze(-1))
+        pmf = self._likelihood(symbols,scales.unsqueeze(-1), means.unsqueeze(-1))
+
         pmf = torch.clamp(pmf, min=self._likelihood_bound)
         # pmf = F.softmax(pmf, dim=4)
         if model_name == 'JointAutoregressive':

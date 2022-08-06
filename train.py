@@ -22,13 +22,11 @@ def parse_args():
     parser.add_argument("--test_dataset", default='/data1/liubj/Kodak24')
     parser.add_argument("--test_batch_size", type=int, default=24)
     parser.add_argument("--epoch", type=int, default=250)
-    parser.add_argument("--check_time", type=float, default=10, help='frequency for recording state (min).')
-    parser.add_argument("--prefix", type=str, default='FactorizedPrior',
-                        help="prefix of checkpoints/logger, etc. e.g. FactorizedPrior, HyperPrior")
-    parser.add_argument("--model_name", default='Factorized',
-                        help="other implemntation: 'Hyperprior', 'JointAutoregressiveHierarchicalPriors', 'CheckerboardAutogressive'")
-    parser.add_argument("--exp_version", default=0, type=int,
-                        help='target an experimental version to avoid overwritting')
+    parser.add_argument("--check_time", type=float, default=10,  help='frequency for recording state (min).') 
+    parser.add_argument("--prefix", type=str, default='FactorizedPrior', help="prefix of checkpoints/logger, etc. e.g. FactorizedPrior, HyperPrior")
+    parser.add_argument("--model_name",default='Factorized',help="other implemntation: 'Hyperprior', 'JointAutoregressiveHierarchicalPriors', 'CheckerboardAutogressive'")
+    parser.add_argument("--exp_version", default=0, type=int, help='target an experimental version to avoid overwritting')
+
     # if you want to use 1 gpu, just --gpu_id '0', if 3 gpus are needed, pass --gpu_id '0 1 2' for example
     parser.add_argument("--gpu_id", type=str, default="0", help="GPU(s) to use, space delimited")
     parser.add_argument("--code_rate", type=str, default="low", help="choice of code_rate: 'low' or 'high'")
@@ -48,6 +46,11 @@ class TrainingConfig():
         self.check_time = check_time
         self.device = device
 
+def set_optimizer(model, lr):
+        params_lr_list = []
+        for module_name in model._modules.keys():
+            params_lr_list.append({"params": model._modules[module_name].parameters(), 'lr':lr})
+        optimizer = torch.optim.Adam(params_lr_list)
 
 def set_optimizer(model, lr):
     params_lr_list = []
@@ -71,8 +74,9 @@ if __name__ == '__main__':
         check_time=args.check_time,
         device=device)
     # model
-    assert args.model_name in ['Factorized', 'Hyperprior', 'JointAutoregressiveHierarchicalPriors',
-                               'CheckerboardAutogressive']
+
+    assert args.model_name in ['Factorized', 'Hyperprior', 'JointAutoregressiveHierarchicalPriors', 'CheckerboardAutogressive']
+
     if args.code_rate == 'low':
         model_ = getattr(model, args.model_name)
     elif args.code_rate == 'high':
