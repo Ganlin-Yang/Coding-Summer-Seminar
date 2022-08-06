@@ -18,11 +18,11 @@ class Trainer():
         self.epoch = 0
         self.iteration = 0
         self.writer = SummaryWriter(config.logdir)
-        self.record_set = {'bpp':[],'mse':[],'sum_loss':[]}
+        self.record_set = {'bpp': [], 'mse': [], 'sum_loss':[]}
 
     def getlogger(self, logdir):
         logger = logging.getLogger(__name__)
-        logger.setLevel(level = logging.INFO)
+        logger.setLevel(level=logging.INFO)
         handler = logging.FileHandler(os.path.join(logdir, 'log.txt'))
         handler.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s: %(message)s', datefmt='%m/%d %H:%M:%S')
@@ -46,7 +46,7 @@ class Trainer():
         return
 
     def save_model(self):
-        torch.save({'model': self.model.state_dict()}, 
+        torch.save({'model': self.model.state_dict()},
             os.path.join(self.config.ckptdir, 'epoch_' + str(self.epoch) + '.pth'))
         return
 
@@ -54,14 +54,16 @@ class Trainer():
     def record(self, main_tag, global_step):
         # print record
         self.logger.info('='*10+main_tag + ' Epoch ' + str(self.epoch) + ' Step: ' + str(global_step))
-        for k, v in self.record_set.items(): 
+        
+        for k, v in self.record_set.items():
             self.record_set[k] = np.mean(np.array(v), axis=0)
-        for k, v in self.record_set.items(): 
-            self.logger.info(k+': '+str(np.round(v, 4).tolist()))   
+        for k, v in self.record_set.items():
+            self.logger.info(k+': '+str(np.round(v, 4).tolist()))
+
         # return zero
-        for k in self.record_set.keys(): 
-            self.record_set[k] = []  
-        return 
+        for k in self.record_set.keys():
+            self.record_set[k] = []
+        return
 
     @torch.no_grad()
     def test(self, dataloader, main_tag='Test'):
@@ -76,15 +78,14 @@ class Trainer():
             self.record_set['sum_loss'].append(out_criterion['loss'].item())
             torch.cuda.empty_cache()# empty cache.
         self.record(main_tag=main_tag, global_step=self.epoch)
-        return 
+        return
 
     def train(self, dataloader, optimizer, clip_max_norm=1.0):
         self.logger.info('='*40+'\n'+'Training Epoch: ' + str(self.epoch))
-        self.logger.info('lmbda:' + str(round(self.config.lmbda,2)))
+        self.logger.info('lmbda:' + str(round(self.config.lmbda, 2)))
         self.logger.info('LR:' + str(np.round([params['lr'] for params in optimizer.param_groups], 6).tolist()))
         # dataloader
         self.logger.info('Training Files length:' + str(len(dataloader)))
-        start_time = time.time()
         for batch_step, images in enumerate(tqdm(dataloader)):
             images = images.to(self.device)
             optimizer.zero_grad()

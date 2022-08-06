@@ -8,9 +8,10 @@ from torch.utils.data import DataLoader
 from loss import RateDistortionLoss
 import torch
 
+
 def parse_args():
     parser = argparse.ArgumentParser(
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("--dataset", default='/data1/liubj/vimeo_1')
     parser.add_argument("--lmbda", type=float, default=1e-2, help="weights for distoration.")
@@ -25,11 +26,13 @@ def parse_args():
     parser.add_argument("--prefix", type=str, default='FactorizedPrior', help="prefix of checkpoints/logger, etc. e.g. FactorizedPrior, HyperPrior")
     parser.add_argument("--model_name",default='Factorized',help="other implemntation: 'Hyperprior', 'JointAutoregressiveHierarchicalPriors', 'CheckerboardAutogressive'")
     parser.add_argument("--exp_version", default=0, type=int, help='target an experimental version to avoid overwritting')
+
     # if you want to use 1 gpu, just --gpu_id '0', if 3 gpus are needed, pass --gpu_id '0 1 2' for example
     parser.add_argument("--gpu_id", type=str, default="0", help="GPU(s) to use, space delimited")
     parser.add_argument("--code_rate", type=str, default="low", help="choice of code_rate: 'low' or 'high'")
     args = parser.parse_args()
     return args
+
 
 class TrainingConfig():
     def __init__(self, logdir, ckptdir, init_ckpt, lmbda, lr, check_time, device):
@@ -49,7 +52,12 @@ def set_optimizer(model, lr):
             params_lr_list.append({"params": model._modules[module_name].parameters(), 'lr':lr})
         optimizer = torch.optim.Adam(params_lr_list)
 
-        return optimizer
+def set_optimizer(model, lr):
+    params_lr_list = []
+    for module_name in model._modules.keys():
+        params_lr_list.append({"params": model._modules[module_name].parameters(), 'lr': lr})
+    optimizer = torch.optim.Adam(params_lr_list)
+    return optimizer
 
 if __name__ == '__main__':
     # log
@@ -58,15 +66,17 @@ if __name__ == '__main__':
     # we select the first gpu as the main device
     device = torch.device("cuda:%d" % args.gpu_id[0]) if torch.cuda.is_available() else torch.device("cpu")
     training_config = TrainingConfig(
-                            logdir=os.path.join('./logs', args.prefix, str(args.exp_version)), 
-                            ckptdir=os.path.join('./ckpts', args.prefix, str(args.exp_version)),
-                            init_ckpt=args.init_ckpt,
-                            lmbda=args.lmbda,
-                            lr=args.lr, 
-                            check_time=args.check_time,
-                            device=device)
+        logdir=os.path.join('./logs', args.prefix, str(args.exp_version)),
+        ckptdir=os.path.join('./ckpts', args.prefix, str(args.exp_version)),
+        init_ckpt=args.init_ckpt,
+        lmbda=args.lmbda,
+        lr=args.lr,
+        check_time=args.check_time,
+        device=device)
     # model
+
     assert args.model_name in ['Factorized', 'Hyperprior', 'JointAutoregressiveHierarchicalPriors', 'CheckerboardAutogressive']
+
     if args.code_rate == 'low':
         model_ = getattr(model, args.model_name)
     elif args.code_rate == 'high':
@@ -76,9 +86,9 @@ if __name__ == '__main__':
         model_ = torch.nn.DataParallel(model_, device_ids=args.gpu_id, dim=0)
 
     criterion = RateDistortionLoss(lmbda=args.lmbda)
-    # trainer    
-    trainer = Trainer(config=training_config, model=model_,criterion=criterion)
-    
+    # trainer
+    trainer = Trainer(config=training_config, model=model_, criterion=criterion)
+
     # dataset
     train_transforms = transforms.Compose(
         [transforms.RandomCrop(256), transforms.ToTensor()]
@@ -88,8 +98,8 @@ if __name__ == '__main__':
         [transforms.CenterCrop(256), transforms.ToTensor()]
     )
 
-    train_dataset = VimeoDataset(args.dataset, 'train', train_transforms) 
-    test_dataset = KodakDataset(args.test_dataset, test_transforms) 
+    train_dataset = VimeoDataset(args.dataset, 'train', train_transforms)
+    test_dataset = KodakDataset(args.test_dataset, test_transforms)
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
@@ -113,5 +123,5 @@ if __name__ == '__main__':
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min", factor=0.5, verbose=True)
     # training
     for epoch in range(0, args.epoch):
-        loss=trainer.train(train_dataloader, optimizer)
+        loss = trainer.train(train_dataloader, optimizer)
         lr_scheduler.step(loss)
