@@ -496,3 +496,4 @@ class GaussianConditional(EntropyBase):
             values = values.to(dequantize_dtype)
             values += minima
             return values
+

@@ -554,13 +554,6 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
             y_len_minima = np.frombuffer(fin.read(2), dtype=np.int16)[0]
             y_minima = np.frombuffer(fin.read(2 * y_len_minima), dtype=np.int16)
             y_maxima = np.frombuffer(fin.read(2 * y_len_minima), dtype=np.int16)
-            # print(f'z_shape: {z_shape}')
-            # print(f'z_len_minima: {z_len_minima}')
-            # print(f'z_minima: {z_minima}')
-            # print(f'z_maxima: {z_maxima}')
-            # print(f'y_len_minima: {y_len_minima}')
-            # print(f'y_minima: {y_minima}')
-            # print(f'y_maxima: {y_maxima}')
             y_file_name = file_name + postfix + '_Fy.bin'
             with open(y_file_name, 'rb'):
                 pass

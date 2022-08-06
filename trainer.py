@@ -84,7 +84,6 @@ class Trainer():
         self.logger.info('LR:' + str(np.round([params['lr'] for params in optimizer.param_groups], 6).tolist()))
         # dataloader
         self.logger.info('Training Files length:' + str(len(dataloader)))
-        start_time = time.time()
         for batch_step, images in enumerate(tqdm(dataloader)):
             images = images.to(self.device)
             optimizer.zero_grad()
