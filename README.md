@@ -129,7 +129,7 @@ $$Loss=\sum_i{p_{\hat{y}_i}}(\hat{y}_i)+\sum_j{p_{\hat{z}_j}}(\hat{z}_j)+\lambda
 
 - ##### Features
 
-  Based on the structure of the Hyperprior model, the context module and the entropy module are introduced. After splicing the parameter $\psi$ obtained by the super-priority network and the parameter $\Phi$ obtained by the context module, enter the entropy module to get the pair $\hat{y}$ The probability parameter of each element, when the $\hat{y}$ elements are considered to be subject to mutually independent Gaussian distributions, the probability parameters are the mean and the variance scales respectively.
+  Based on the structure of the Hyperprior model, the context module and the entropy module are introduced. The hyperprior network obtain the parameter $\psi$ and the context module obtain the parameter $\Phi$, then concatenate the two parameters and enter into the entropy module to get the probability parameter of each element in $\hat{y}$, spacifically, when the $\hat{y}$ elements are considered to be subject to mutually independent Gaussian distributions, the probability parameters are the mean and the variance scales respectively.
 
   Due to the introduction of the context module, each element depends on each other during the decoding process, that is, the elements in the back position need to wait for the elements in the front position to be decoded before they can be decoded. There is a sequence in time, so a strict serial decoding method is required. The time complexity of decoding is greatly increased.
 
@@ -137,7 +137,7 @@ $$Loss=\sum_i{p_{\hat{y}_i}}(\hat{y}_i)+\sum_j{p_{\hat{z}_j}}(\hat{z}_j)+\lambda
 
 - ##### compress&decompress
 
-  The range-coder is used to  encode and decode $\hat{y}$. Encoding provides two ways of parallel compress and serial compress, and there is only one way of serial decompress for decoding. According to the description in Compressai, the model needs to run on the cpu during the test, but in the actual test, it is found that the test on the cpu is not stable, and there will be garbled decoding, however,  the test performance on gpu is very stable with using  `torch.use_deterministic_algorithms(True)` statement. The current training results are normal, but the test results on the Kodak dataset still have the problem that the bpp is too large. It is suspected that the problem lies in the inaccurate estimation of the probability of encoding elements by the entropy model in the actual encoding process and the instability of the range-coder.We will continue to find the location.
+  The range-coder is used to encode and decode $\hat{y}$. Encoding provides two ways of parallel compress and serial compress, and there is only one way of serial decompress for decoding. According to the description in Compressai, the model needs to run on the cpu during the test, but in the actual test, it is found that the test on the cpu is not stable, and there will be garbled decoding, however,  the test performance on gpu is very stable with using  `torch.use_deterministic_algorithms(True)` statement. The current training results are normal, but the test results on the Kodak dataset still have the problem that the bpp is too large. It is suspected that the problem lies in the inaccurate estimation of the probability of encoding elements by the entropy model in the actual encoding process and the instability of the range-coder.We will continue to find the location.
 
 
 ### 1.4 Checkerboard Autoregressive
