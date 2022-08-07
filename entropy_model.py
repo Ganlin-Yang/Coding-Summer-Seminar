@@ -206,7 +206,7 @@ class EntropyBottleneck(EntropyBase):
     def compress(self, inputs, device='cuda'):
         #Input:[B,C,H,W]
         #量化
-        values = self.quantize(inputs, mode="symbols")
+        values = self.quantize(inputs, mode='quantize')
         batch_size, channels, H, W = values.shape[:]
         # 获得编码范围内所有字符的概率值
         minima = values.min().detach().float()
@@ -418,94 +418,60 @@ class GaussianConditional(EntropyBase):
     """
 
     @torch.no_grad()
-    def compress(self, inputs, scales, means=None, minima=None, maxima=None, model_name='JointAutoregressive',
-                 encoder=None):
-        """new version
-        return: strings, minima, maxima
-        """
-        if model_name == 'JointAutoregressive':
-            device = 'cpu'
-        else:
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    def compress(self,inputs,scales, means=0, model_name='JointAutoregressive'):
+        device = 'cuda'
         # 量化
-        values = self.quantize(inputs, mode="symbols")
-        batch_size, channels, H, W = values.shape
-        # 获得编码范围内所有字符的概率值，如果给定了就不用统计了
-        # if minima == None and maxima == None:
-        #     minima = values.min().detach().float()
-        #     maxima = values.max().detach().float()
-        #     minima, maxima = torch.int([minima]), torch.int([maxima])
+        values = self.quantize(inputs,mode="quantize")
         minima = values.min().detach().float()
         maxima = values.max().detach().float()
-        symbols = torch.arange(minima, maxima + 1).to(device)
-        # 对编码元素做一个偏移，使其最小值为0
-
+        symbols = torch.arange(minima, maxima+1).to(device)
         values = (values-minima).to(torch.int16)
-
+        if model_name == 'JointAutoregressive':
+            H, W, batch_size, channels = values.shape
+            symbols = symbols.reshape(1, 1, 1, 1, -1).repeat(H, W, batch_size, channels, 1)
+        else:
+            batch_size, channels,H,W = values.shape
+        # 对编码元素做一个偏移，使其最小值为0
         # symbols: torch.Size([points]) -> torch.Size([1, 1, 1, 1, points]) -> (batch_size,C,H,W,points)
         # scales: torch.Size([batch_size, C, H, W])  -> (batch_size, C,H,W,1)，对应unsqueeze(-1)操作
-        symbols = symbols.reshape(1, 1, 1, 1, -1).repeat(batch_size, channels, H, W, 1).to(device)
-        scales = scales.to(device)
-        pmf = self._likelihood(symbols, scales.unsqueeze(-1), means=means.unsqueeze(-1))
+            symbols = symbols.reshape(1, 1, 1, 1, -1).repeat(batch_size,channels, H, W, 1)
+        pmf = self._likelihood(symbols,scales.unsqueeze(-1), means=means.unsqueeze(-1))
         pmf = torch.clamp(pmf, min=self._likelihood_bound)
-        # pmf = F.softmax(pmf, dim=4)
-        if model_name == 'JointAutoregressive':
-            # 对于自回归模型使用range-coder编码器编解码，每次编码张量格式为[1, C, 1, 1]
-            assert encoder is not None
-            resolution = 1e+5
-            values = values.squeeze(3).squeeze(2).squeeze(0).cpu()
-            cdf = self._pmf_to_cdf(pmf).squeeze(3).squeeze(2).squeeze(0).cpu()
-
-            cdf = torch.round(cdf*resolution).int()
-
-            for i in range(values.size(0)):
-                seq_list = []
-                seq_list.append(int(values[i]))
-                cdf_list = cdf[i].tolist()
-                encoder.encode(seq_list, cdf_list)
-        else:
-            # 对于hyper模型使用常规的torchac编码器编解码
-            cdf = self._pmf_to_cdf(pmf).to('cpu')
-            values = values.to('cpu')
-            # torchac传入两个主要参数，概率表和待编码元素，概率表out_cdf是按顺序排列的概率，格式[B,C,H,W,point]，待编码元素格式[B,C,H,W]
-            strings = torchac.encode_float_cdf(cdf, values)
-            return strings, minima.cpu().numpy(), maxima.cpu().numpy()
+        cdf = self._pmf_to_cdf(pmf).to('cpu')
+        values = values.to('cpu')
+        #torchac传入两个主要参数，概率表和待编码元素，概率表out_cdf是按顺序排列的概率，格式[B,C,H,W,point]，待编码元素格式[B,C,H,W]
+        strings = torchac.encode_float_cdf(cdf, values)
+        return strings, minima.cpu().numpy(), maxima.cpu().numpy()
 
     @torch.no_grad()
-    def decompress(self, strings, minima, maxima, shape, scales, means=None, dequantize_dtype=torch.float,
-                   model_name='JointAutoregressive', decoder=None):
-        """new version
-        return: features
-        """
-        if model_name == 'JointAutoregressive':
-            device = 'cpu'
-        else:
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        batch_size, channels, H, W = shape[:]
-
+    def decompress(self, strings, minima, maxima, shape, scales, means=0, model_name='JointAutoregressive', cdf_pre=None, index=None):
+        device = 'cuda'
         symbols = torch.arange(minima, maxima+1).to(device)
-        symbols = symbols.reshape(1, 1, 1, 1, -1).repeat(batch_size, channels, H, W, 1)
+        if model_name == 'JointAutoregressive':
+            H, W, batch_size, channels = shape[:]
+            symbols = symbols.reshape(1, 1, 1, 1, -1).repeat(H, W, batch_size, channels, 1)
+        else:
+            batch_size, channels,H,W = shape[:]
+            symbols = symbols.reshape(1, 1, 1, 1, -1).repeat(batch_size,channels, H, W, 1)
 
         pmf = self._likelihood(symbols,scales.unsqueeze(-1), means.unsqueeze(-1))
-
         pmf = torch.clamp(pmf, min=self._likelihood_bound)
-        # pmf = F.softmax(pmf, dim=4)
+        cdf = self._pmf_to_cdf(pmf).to('cpu')
+        # 对于自回归模型每次解码后需要更新cdf,index为元组表示遍历到H,W的位置
         if model_name == 'JointAutoregressive':
-            assert decoder is not None
-            seq_list = []
-            resolution = 1e+5
-            cdf = self._pmf_to_cdf(pmf).squeeze(3).squeeze(2).squeeze(0).cpu()
-            cdf = torch.round(cdf * resolution).int()
-            for i in range(channels):
-                cdf_list = cdf[i].tolist()
-                values = decoder.decode(1, cdf_list)[0] + minima
-                seq_list.append(values)
-            # 返回Tensor shape:[1, M]
-            return torch.tensor(seq_list).unsqueeze(0)
+            cdf_cur = cdf[0:1, 0:1, :, :]
+            assert index is not None
+            i, j = *index,
+            if i==0 and j==0:
+                cdf_pre = torch.zeros_like(cdf)
+            cdf_pre[i:i+1, j:j+1, :, :] = cdf_cur
+            values = torchac.decode_float_cdf(cdf_pre, strings)
+            values = values.to(torch.float)
+            values += minima
+            return values[i, j, :, :], cdf_pre
         else:
-            cdf = self._pmf_to_cdf(pmf).to('cpu')
             values = torchac.decode_float_cdf(cdf, strings)
-            values = values.to(dequantize_dtype)
+            values = values.to(torch.float)
             values += minima
             return values
 
