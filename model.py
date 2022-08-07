@@ -358,30 +358,28 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
             "likelihood": {"y": y_likelihood, "z": z_likelihood},
         }
 
-    # context_model模型要在cup上测试。解码要求边解码边测试，所以更换算术编码器为range-coder，并且在编码时也需要串行操作。
-    def compress(self, x, filepath):
+   def compress(self, x):
         if next(self.parameters()).device != torch.device('cpu'):
             warnings.warn("Inference on GPU is not recommended for the autoregressive "
-                          "models (the entropy coder is run sequentially on CPU).")
+                "models (the entropy coder is run sequentially on CPU).")
         # y.shape=[B,M,H,W]
         y = self.g_a(x)
         z = self.h_a(y)
         # 编解码z
         z_strings, z_minima, z_maxima = self.entropy_bottleneck.compress(z)
-        # z_hat = self.entropy_bottleneck.decompress(z_strings, z_minima, z_maxima, z.size())
-        z_hat = torch.round(z)
+        z_hat = self.entropy_bottleneck.decompress(z_strings, z_minima, z_maxima, z.size()).to(device)
         y_q = self.gaussian_conditional.quantize(y, mode='quantize')
+        assert z_hat.equal(torch.round(z))
         # 编码y
         # params.shape=[B, 2M, H, W]
         params = self.h_s(z_hat)
-        s = 4  # y,z下采样倍数4
+        s = 4  #y,z下采样倍数4
         kernel_size = 5  # context prediction kernel size
         padding = (kernel_size - 1) // 2
-
         y_height = z_hat.size(2) * s
         y_width = z_hat.size(3) * s
         # 在H和W这两个维度上做填充，上下左右各填充paddings，后面掩码卷积从第一个元素开始估计均值（不填充行和列的前后kernal_size/2个元素没法被估计）
-        y_hat = F.pad(y, (padding, padding, padding, padding))
+        y_hat = F.pad(y_q, (padding, padding, padding, padding))
         # y.size(0) = B， test: default=1
         # y_minima, y_maxima = self.compress_serial(
         #     y_hat,
@@ -392,42 +390,31 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
         #     padding,
         #     filepath,
         #  )
-        y_minima, y_maxima = self.compress_pa(y_q, params, filepath)
-        return {"strings": z_strings, "shape": [y.shape, z.shape], "y_scope": [y_minima, y_maxima],
-                "z_scope": [z_minima, z_maxima],
-                }
-
+        y_strings, y_minima, y_maxima = self.compress_pa(y_q, params)
+        return {"strings": [y_strings, z_strings], "shape": [y.shape, z.shape], "y_scope":[y_minima, y_maxima], "z_scope":[z_minima, z_maxima],
+        }
     # 并行编码
-    def compress_pa(self, y, params, filepath):
+    def compress_pa(self, y, params):
         y_minima = []
         y_maxima = []
-        height, width = y.shape[2:]
+        dim = (2, 3, 0, 1)
         ctx_params = self.context_prediction(y)
         gaussian_params = self.entropy_parameters(
             torch.cat((params, ctx_params), dim=1)
         )
         scales_hat, means_hat = gaussian_params.chunk(2, 1)
-
-        y_hat = self.gaussian_conditional.quantize(y, mode="quantize")
-
-        encoder = RangeEncoder(filepath)
-        for i in tqdm(range(height)):
-            for j in range(width):
-                minima, maxima = self.gaussian_conditional.compress(y_hat[:, :, i:i + 1, j:j + 1],
-                                                                    scales=scales_hat[:, :, i:i + 1, j:j + 1],
-                                                                    means=means_hat[:, :, i:i + 1, j:j + 1],
-                                                                    model_name='JointAutoregressive',
-                                                                    encoder=encoder)
-                y_minima.append(minima)
-                y_maxima.append(maxima)
-        encoder.close()
-        return y_minima, y_maxima
+        # 维度转换，将[B,C,H,W]的张量转换成[H,W,B,C]，方便后续的熵解码
+        y = y.permute(*dim)
+        scales_hat = scales_hat.permute(*dim)
+        means_hat = means_hat.permute(*dim)
+        y_strings, y_minima, y_maxima = self.gaussian_conditional.compress(y, scales=scales_hat, means=means_hat, model_name='JointAutoregressive')
+        return y_strings, y_minima, y_maxima
 
     # 串行编码
     def compress_serial(self, y_hat, params, height, width, kernel_size, padding, filepath):
         # 初始化一些参数
         # masked_weight.shape[2M, M, kernal_size, kernal_size]
-        masked_weight = self.context_prediction.weight * self.context_prediction.mask
+        masked_weight = self.context_prediction.weight*self.context_prediction.mask
         y_minima = []
         y_maxima = []
         # params.shape=[1, 2M, H, W] y_hat.shape=[1, M, H, W]
@@ -437,7 +424,7 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
         for i in tqdm(range(height)):
             for j in range(width):
                 # 每次取y_crop.shape=[1, M, kernal_size, kernal_size], kernal_size=5
-                y_crop = y_hat[:, :, i: i + kernel_size, j: j + kernel_size]
+                y_crop = y_hat[:, :, i : i + kernel_size, j : j + kernel_size]
                 # 掩码卷积，让被估计的元素处在卷积核中间位置
                 ctx_p = F.conv2d(
                     y_crop,
@@ -445,128 +432,129 @@ class JointAutoregressiveHierarchicalPriors(nn.Module):
                     bias=self.context_prediction.bias,
                 )
                 # ctx_p.shape=[1, 2M, 1, 1], p.shape=[1, 2M, 1, 1]
-                p = params[:, :, i:i + 1, j:j + 1]
+                p = params[:, :, i:i+1, j:j+1]
                 gaussian_params = self.entropy_parameters(torch.cat((p, ctx_p), dim=1))
-
+                
                 scales_hat, means_hat = gaussian_params.chunk(2, 1)
                 # y_crop.shape [1, M, 1, 1]即通过上下文模型预测了在高和宽特定位置上所有通道的元素的均值
                 y_crop = y_crop[:, :, padding, padding].unsqueeze(2).unsqueeze(3)
 
                 # 对待编码元素每次只编码H,W某一特定位置上的所有通道
-                minima, maxima = self.gaussian_conditional.compress(y_crop, scales=scales_hat, means=means_hat,
-                                                                    model_name='JointAutoregressive', encoder=encoder)
+                minima, maxima = self.gaussian_conditional.compress(y_crop, scales=scales_hat, means=means_hat, 
+                model_name='JointAutoregressive', encoder=encoder)
                 y_minima.append(minima)
                 y_maxima.append(maxima)
         encoder.close()
         # y_minima,y_maxinma是H*W的列表
         return y_minima, y_maxima
 
-    def decompress(self, strings, shape, y_scope, z_scope, filepath):
+    def decompress(self, strings, shape, y_scope, z_scope):
         if next(self.parameters()).device != torch.device("cpu"):
             warnings.warn(
                 "Inference on GPU is not recommended for the autoregressive "
                 "models (the entropy coder is run sequentially on CPU)."
             )
 
-        z_hat = self.entropy_bottleneck.decompress(strings, z_scope[0], z_scope[1], shape[1])
+        z_hat = self.entropy_bottleneck.decompress(strings[1], z_scope[0], z_scope[1] ,shape[1]).to(device)
         params = self.h_s(z_hat)
 
         kernel_size = 5  # context prediction kernel size
         padding = (kernel_size - 1) // 2
-        y_shape = shape[0]
+        y_shape = shape[0] 
         # y_hat.shape=[1, M, H+2*padding, W+2*padding]
-        y_hat = torch.zeros((1, y_shape[1], y_shape[2] + 2 * padding, y_shape[3] + 2 * padding), device=z_hat.device)
+        y_hat = torch.zeros((1, y_shape[1], y_shape[2]+2*padding, y_shape[3]+2*padding), device=z_hat.device)
         y_hat = self.decompress_serial(
             y_hat,
+            strings[0],
             params,
             y_shape,
             kernel_size,
             padding,
             y_scope,
-            filepath,
         )
         # 去除为了使用掩码卷积而增加的padding
         y_hat = F.pad(y_hat, (-padding, -padding, -padding, -padding))
         x_hat = self.g_s(y_hat).clamp_(0, 1)
-        return x_hat
+        return x_hat 
 
-    def decompress_serial(self, y_hat, params, shape, kernel_size, padding, y_scope, filepath):
-        masked_weight = self.context_prediction.weight * self.context_prediction.mask
-        # print(masked_weight)
+    def decompress_serial(self, y_hat, y_strings, params, shape, kernel_size, padding, y_scope):
+        masked_weight = self.context_prediction.weight*self.context_prediction.mask
         y_minima = y_scope[0]
         y_maxima = y_scope[1]
         batch_size, M, height, width = shape[:]
-        channel_shape = [batch_size, M, 1, 1]
-        # 初始化range_coder解码器
-        decoder = RangeDecoder(filepath)
+        shifted_shape = [height, width, batch_size, M]
+        dim = (2, 3, 0, 1)
+        # 这里只是随意初始化一个值
+        cdf_pre = torch.zeros(1)
         for i in tqdm(range(height)):
             for j in range(width):
-                y_crop = y_hat[:, :, i: i + kernel_size, j: j + kernel_size]
+                y_crop = y_hat[:, :, i: i+kernel_size, j: j+kernel_size]
                 ctx_p = F.conv2d(
                     y_crop,
                     masked_weight,
-                    bias=self.context_prediction.bias,
+                    bias = self.context_prediction.bias,
                 )
-
                 p = params[:, :, i:i+1, j:j+1]
-
                 gaussian_params = self.entropy_parameters(torch.cat((p, ctx_p), dim=1))
+                # shape: [batch_size, M, 1, 1]
                 scales_hat, means_hat = gaussian_params.chunk(2, 1)
-                channel_value = self.gaussian_conditional.decompress(
-                    strings=None,
-                    minima=y_minima[i * width + j], maxima=y_maxima[i * width + j], shape=channel_shape,
-                    scales=scales_hat, means=means_hat,
-                    decoder=decoder)
-                y_hat[:, :, i + padding, j + padding] = channel_value
-        decoder.close()
+                channel_value, cdf_pre = self.gaussian_conditional.decompress(
+                    strings=y_strings, 
+                    minima=y_minima, maxima=y_maxima, shape=shifted_shape, 
+                    scales=scales_hat.permute(*dim), means=means_hat.permute(*dim), 
+                    model_name='JointAutoregressive',
+                    cdf_pre = cdf_pre,
+                    index = (i, j),
+                )
+                y_hat[:, :, i+padding, j+padding] = channel_value
         return y_hat
 
-    def encode(self, inputs, file_name, postfix=''):
+    def encode(self,inputs,file_name,postfix=''):
         """
         在compress的基础上调用熵编码器进一步封装额外的参数
         """
         # 由于range_coder编码需要文件名，首先创建编码y的文件
-        y_file_name = file_name + postfix + '_Fy.bin'
-        with open(y_file_name, 'w'):
-            pass
-        out = self.compress(inputs, filepath=y_file_name)
-        z_strings = out['strings']
-        y_shape, z_shape = out['shape']
-        z_minima, z_maxima = out['z_scope']
-        y_minima, y_maxima = out['y_scope']
-        with open(file_name + postfix + '_Fz.bin', 'wb') as fout:
+        out = self.compress(inputs)
+        y_strings = out['strings'][0]
+        z_strings = out['strings'][1]
+        y_shape,z_shape = out['shape']
+        z_minima,z_maxima = out['z_scope']
+        y_minima,y_maxima = out['y_scope']
+        with open(file_name+postfix+'_Fy.bin', 'wb') as fout:
+            fout.write(y_strings)
+        with open(file_name+postfix+'_Fz.bin', 'wb') as fout:
             fout.write(z_strings)
 
-        with open(file_name + postfix + '_H.bin', 'wb') as fout:
+        with open(file_name+postfix+'_H.bin', 'wb') as fout:
             fout.write(np.array(z_shape, dtype=np.int32).tobytes())
             fout.write(np.array(len(z_minima), dtype=np.int8).tobytes())
-            # 记录编码元素的属性：最大值，最小值，存储一个int8需要1Bytes
+            #记录编码元素的属性：最大值，最小值，存储一个int8需要1Bytes
             fout.write(np.array(z_minima, dtype=np.int8).tobytes())
             fout.write(np.array(z_maxima, dtype=np.int8).tobytes())
 
             fout.write(np.array(y_shape, dtype=np.int32).tobytes())
-            fout.write(np.array(len(y_minima), dtype=np.int16).tobytes())
-            # 记录编码元素的属性：最大值，最小值，存储一个int16需要2Bytes
+            fout.write(np.array(y_minima.size, dtype=np.int16).tobytes())
+            #记录编码元素的属性：最大值，最小值，存储一个int16需要2Bytes
             fout.write(np.array(y_minima, dtype=np.int16).tobytes())
-            fout.write(np.array(y_maxima, dtype=np.int16).tobytes())
-
+            fout.write(np.array(y_maxima, dtype=np.int16).tobytes()) 
+    
     def decode(self, file_name, postfix=''):
-        with open(file_name + postfix + '_Fz.bin', 'rb') as fin:
+        with open(file_name+postfix+'_Fz.bin', 'rb') as fin:
             z_strings = fin.read()
-        with open(file_name + postfix + '_H.bin', 'rb') as fin:
-            z_shape = np.frombuffer(fin.read(4 * 4), dtype=np.int32)
+        with open(file_name+postfix+'_H.bin', 'rb') as fin:
+            z_shape = np.frombuffer(fin.read(4*4), dtype=np.int32)
             z_len_minima = np.frombuffer(fin.read(1), dtype=np.int8)[0]
-            z_minima = np.frombuffer(fin.read(1 * z_len_minima), dtype=np.int8)[0]
-            z_maxima = np.frombuffer(fin.read(1 * z_len_minima), dtype=np.int8)[0]
-            y_shape = np.frombuffer(fin.read(4 * 4), dtype=np.int32)
+            z_minima = np.frombuffer(fin.read(1*z_len_minima), dtype=np.int8)[0]
+            z_maxima = np.frombuffer(fin.read(1*z_len_minima), dtype=np.int8)[0]
+            y_shape = np.frombuffer(fin.read(4*4), dtype=np.int32)
             y_len_minima = np.frombuffer(fin.read(2), dtype=np.int16)[0]
-            y_minima = np.frombuffer(fin.read(2 * y_len_minima), dtype=np.int16)
-            y_maxima = np.frombuffer(fin.read(2 * y_len_minima), dtype=np.int16)
-            y_file_name = file_name + postfix + '_Fy.bin'
-            with open(y_file_name, 'rb'):
-                pass
-        x_hat = self.decompress(z_strings, [y_shape, z_shape], [y_minima, y_maxima], [z_minima, z_maxima],
-                                filepath=y_file_name)
+            y_minima = np.frombuffer(fin.read(2*y_len_minima), dtype=np.int16)[0]
+            y_maxima = np.frombuffer(fin.read(2*y_len_minima), dtype=np.int16)[0]
+            
+        with open(file_name+postfix+'_Fy.bin', 'rb') as fin:
+            y_strings = fin.read()
+
+        x_hat = self.decompress([y_strings,z_strings],[y_shape,z_shape],[y_minima,y_maxima],[z_minima,z_maxima])
         return x_hat
 
 
