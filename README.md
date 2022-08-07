@@ -126,6 +126,7 @@ $$Loss=\sum_i{p_{\hat{y}_i}}(\hat{y}_i)+\sum_j{p_{\hat{z}_j}}(\hat{z}_j)+\lambda
 
 ### 1.3 Joint Autoregressive Hierarchical Priors
 - ##### Fig
+![Jointautoregressive](./Image4md/Context_model_network_structure.png)
 
 - ##### Features
 
