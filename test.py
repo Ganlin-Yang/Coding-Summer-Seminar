@@ -23,10 +23,7 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
     # 对于Hyperprior，前两个低码率点N=128，M=192，后两个高码率点N=192，M=320
     # 对于JointAutoregressiveHierarchicalPriors，前两个低码率点N=M=192，后两个高码率点N=192，M=320
     # 对于CheckerboardAutogressive，前两个低码率点N=M=192，后两个高码率点N=192，M=320
-    if model_name == 'JointAutoregressiveHierarchicalPriors' or not (torch.cuda.is_available()):
-        device = 'cpu'
-    elif torch.cuda.is_available():
-        device = 'cuda'
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     outdir_init = os.path.join(outdir, model_name)
     resultdir_init = os.path.join(resultdir, model_name)
 
@@ -77,17 +74,13 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
             postfix_idx = '_lmbda' + str(lmbda[idx])
 
             # encode
-            start_time = time.time()
-            _ = coder.encode(x, postfix=postfix_idx)
-            print('Enc Time:\t', round(time.time() - start_time, 3), 's')
-            time_enc = round(time.time() - start_time, 3)
+            enc_time = coder.encode(x, postfix=postfix_idx)
+            print('Enc Time:\t', enc_time, 's')
 
             # decode
-            start_time = time.time()
-            x_dec = coder.decode(postfix=postfix_idx)  # 从文件中读取数据然后解码，解码后对x_dec限定范围[0, 1]
+            x_dec, dec_time = coder.decode(postfix=postfix_idx)  # 从文件中读取数据然后解码，解码后对x_dec限定范围[0, 1]
             x_dec = torch.clamp(x_dec, min=0.0, max=1.0)
-            print('Dec Time:\t', round(time.time() - start_time, 3), 's')
-            time_dec = round(time.time() - start_time, 3)
+            print('Dec Time:\t', dec_time, 's')
 
             # bitrate
             if args.model_name == "Factorized":
@@ -97,8 +90,7 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
             else:
                 postfix_list = ['_Fy.bin', '_Fz.bin', '_H.bin']
 
-            bits = np.array([os.path.getsize(filename + postfix_idx + postfix) * 8 \
-                             for postfix in postfix_list])
+            bits = np.array([os.path.getsize(filename + postfix_idx + postfix) * 8 for postfix in postfix_list])
 
             bpps = (bits / num_pixel).round(3)
             print('num_pixel:', num_pixel)
@@ -119,8 +111,8 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
             results["bits"] = sum(bits).round(3)
             results["bpp"] = sum(bpps).round(3)
             results['psnr'] = psnr
-            results["time(enc)"] = time_enc
-            results["time(dec)"] = time_dec
+            results["time(enc)"] = enc_time
+            results["time(dec)"] = dec_time
 
             one_pic_result.append(results)
 
