@@ -138,7 +138,7 @@ $$Loss=\sum_i{p_{\hat{y}_i}}(\hat{y}_i)+\sum_j{p_{\hat{z}_j}}(\hat{z}_j)+\lambda
 
 - ##### compress&decompress
 
-  The torchac is used to encode and decode $\hat{y}$. Encoding provides two ways of parallel compress and serial compress,(serial compress is not a good way so we give it up) and there is only one way of serial decompress for decoding.  We permute the &\hat{y}& tensor and then use the torchac to encode. As for decoding, we use iteratively updated cdf_list to get the &\hat{y}& step by step. According to the description in Compressai, the model needs to run on the cpu during the test, but in the actual test, it is found that the test on the cpu is not stable, and there will be garbled decoding, however,  the test performance on gpu is very stable with using  `torch.use_deterministic_algorithms(True)` statement. The current training results and the test results are normal.
+  The torchac is used to encode and decode $\hat{y}$. Encoding provides two ways of parallel compress and serial compress,(serial compress is not a good way so we give it up) and there is only one way of serial decompress for decoding.  We permute the $\hat{y}$ tensor and then use the torchac to encode. As for decoding, we use iteratively updated cdf_list to get the $\hat{y}$ step by step. According to the description in Compressai, the model needs to run on the cpu during the test, but in the actual test, it is found that the test on the cpu is not stable, and there will be garbled decoding, however,  the test performance on gpu is very stable with using  `torch.use_deterministic_algorithms(True)` statement. The current training results and the test results are normal.
 
 
 ### 1.4 Checkerboard Autoregressive
