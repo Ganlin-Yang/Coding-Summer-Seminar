@@ -207,9 +207,9 @@ python test.py --model_name CheckerboardAutogressive --epoch_num 249
 
 The R-D Curve is plotted below:
 
-![R-D_Curve_full](statistics/R-D_Curve_full.jpg)
+![R-D_Curve_full](statistics/R-D_Curve_new.jpg)
 
-We can see that our models both provide better rate-distortion performance compared to JPEG. What's more, our Hyperprior model can provide better performance than JPEG2000. Compared with compressai official results, our models get 1dB lower than the official results at same bit rates.
+We can see that our models both provide better rate-distortion performance compared to JPEG. What's more, our Hyperprior model can provide better performance than JPEG2000. However, our JointAutoregressive model can't get expected performance due to training method or other reasons. Compared with compressai official results, our models get 1dB lower than the official results at same bit rates.
 
 Specifically, the Factorized models' detailed results are recorded as:
 
@@ -229,21 +229,31 @@ The Hyperprior models' detailed results are recorded as:
 | 0.025  | 393216     | 240186.3 | 0.610958 | 32.97386 | 1.117917  | 0.772125  |
 | 0.0483 | 393216     | 335234.7 | 0.852583 | 34.73847 | 1.202125  | 1.087917  |
 
+The JointAutoregressive  models' detailed results are recorded as:
+
+| lmbda  | num_pixels | bits     | bpp      | psnr     | time(enc) | time(dec) |
+| ------ | ---------- | -------- | -------- | -------- | --------- | --------- |
+| 0.0067 | 393216     | 109899.7 | 0.279542 | 29.87457 | 1.137833  | 753.0708  |
+| 0.013  | 393216     | 169756   | 0.431875 | 31.61642 | 0.619042  | 727.0031  |
+| 0.025  | 393216     | 252778.3 | 0.643    | 32.9335  | 1.272083  | 1245.762  |
+| 0.0483 | 393216     | 363390   | 0.924333 | 34.83142 | 1.421083  | 1603.472  |
+
 ### 3.2 Subjective quality evaluation
 
 We show an image(take kodak-19 as an example) compressed using our method optimized for a low value of λ (and thus, a low bit rate), compared to JPEG image compressed at equal or greater bit rates.
 
 ![compare](statistics/reconstruct_image/compare.png)
 
-The above images from left to right are the original kodak-19 image, image compressed using our Factorized model, image compressed using our Hyperprior model, and JPEG compressed image. The detailed bpp and psnr are as below:
+The above images of the first row from left to right are the original kodak-19 image, image compressed using our Factorized model, image compressed using our Hyperprior model. The second row  row from left to right are the image compressed using our JointAutoregressive model and JPEG compressed image. The detailed bpp and psnr are as below:
 
-| Methods    | bpp   | psnr   |
-| ---------- | ----- | ------ |
-| Factorized | 0.250 | 28.496 |
-| Hyperprior | 0.255 | 29.357 |
-| JPEG       | 0.221 | 23.890 |
+| Methods             | bpp   | psnr   |
+| ------------------- | ----- | ------ |
+| Factorized          | 0.250 | 28.496 |
+| Hyperprior          | 0.255 | 29.357 |
+| JointAutoregressive | 0.256 | 29.757 |
+| JPEG                | 0.221 | 23.890 |
 
-At similar bit rates, our method provides the higher visual quality on the kodak-19 image. However, for some detailed parts of the original image, such as the textures of the sky and the fence, our Factorized model restores more blur, and the Hyperprior model retains some textures, but a little blur still exists. JPEG shows severe blocking artifacts at this bit rate.
+At similar bit rates, our method provides the higher visual quality on the kodak-19 image. However, for some detailed parts of the original image, such as the textures of the sky and the fence, our Factorized model restores more blur, and the Hyperprior model  and the JointAutoregressive model retains some textures, but a little blur still exists. JPEG shows severe blocking artifacts at this bit rate.
 
 ## Part 4: Model Complexity
 
