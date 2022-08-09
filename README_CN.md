@@ -205,11 +205,11 @@ python test.py --model_name CheckerboardAutogressive --epoch_num 249
 
 ### 3.1 R-D Curve
 
-我们Factorized、Hyperprior两种模型以及JPEG、JPEG2000、compressai的R-D Curve如下所示：
+我们Factorized、Hyperprior、JointAutoregressive三种模型以及JPEG、JPEG2000、compressai的R-D Curve如下所示：
 
-![R-D_Curve_full](statistics/R-D_Curve_full.jpg)
+![R-D_Curve_full](statistics/R-D_Curve_new.jpg)
 
-可以看到，我们的Factorized、Hyperprior两种模型的性能均远超JPEG。同时，我们Hyperprior模型的性能可以超过JPEG2000。与compressai官方数据对比可知，我们的Factorized、Hyperprior两种模型在相同bpp的情况下，PSNR与compressai官方数据相差约1dB。
+可以看到，我们的Factorized、Hyperprior两种模型的性能均远超JPEG。同时，我们Hyperprior模型的性能可以超过JPEG2000。但由于训练方式以及其他原因，我们的JointAutoregressive模型未达到预期的性能。与compressai官方数据对比可知，我们的Factorized、Hyperprior两种模型在相同bpp的情况下，PSNR与compressai官方数据相差约1dB。
 
 Factorized模型的具体结果如下表所示：
 
@@ -229,21 +229,30 @@ Hyperprior模型的具体结果如下表所示：
 | 0.025  | 393216     | 240186.3 | 0.610958 | 32.97386 | 1.117917  | 0.772125  |
 | 0.0483 | 393216     | 335234.7 | 0.852583 | 34.73847 | 1.202125  | 1.087917  |
 
+The JointAutoregressive  models' detailed results are recorded as:
+
+| lmbda  | num_pixels | bits     | bpp      | psnr     | time(enc) | time(dec) |
+| ------ | ---------- | -------- | -------- | -------- | --------- | --------- |
+| 0.0067 | 393216     | 109899.7 | 0.279542 | 29.87457 | 1.137833  | 753.0708  |
+| 0.013  | 393216     | 169756   | 0.431875 | 31.61642 | 0.619042  | 727.0031  |
+| 0.025  | 393216     | 252778.3 | 0.643    | 32.9335  | 1.272083  | 1245.762  |
+| 0.0483 | 393216     | 363390   | 0.924333 | 34.83142 | 1.421083  | 1603.472  |
 ### 3.2 主观质量评价
 
 我们以kodak-19为例，进行简单的主观质量评价。
 
 ![compare](statistics/reconstruct_image/compare.png)
 
-上图从左到右分别为kodak-19原图、Factorized模型、Hyperprior模型以及JPEG编解码重建图像。具体的bpp与psnr如下：
+上图的第一排从左到右分别为kodak-19原图、Factorized模型、Hyperprior模型的重建图像，第二排分别为JointAutoregressive模型与JPEG的重建图像。具体的bpp与psnr如下：
 
-| Methods    | bpp   | psnr   |
-| ---------- | ----- | ------ |
-| Factorized | 0.250 | 28.496 |
-| Hyperprior | 0.255 | 29.357 |
-| JPEG       | 0.221 | 23.890 |
+| Methods             | bpp   | psnr   |
+| ------------------- | ----- | ------ |
+| Factorized          | 0.250 | 28.496 |
+| Hyperprior          | 0.255 | 29.357 |
+| JointAutoregressive | 0.256 | 29.757 |
+| JPEG                | 0.221 | 23.890 |
 
-在bpp相近的情况下，我们的Factorized和Hyperprior两种模型整体上都具有较高的主观恢复质量。但对于原图的一些细节部分，比如天空和栅栏的纹理，我们的Factorized模型恢复的较为模糊，Hyperprior模型保留了一些纹理，但仍有少许模糊存在。JPEG在这一码率点则出现了较为严重的块状失真。
+在bpp相近的情况下，我们的Factorized和Hyperprior两种模型整体上都具有较高的主观恢复质量。但对于原图的一些细节部分，比如天空和栅栏的纹理，我们的Factorized模型恢复的较为模糊，Hyperprior模型和JointAutoregressive模型保留了一些纹理，但仍有少许模糊存在。JPEG在这一码率点则出现了较为严重的块状失真。
 
 ## 第四部分：模型复杂度
 
