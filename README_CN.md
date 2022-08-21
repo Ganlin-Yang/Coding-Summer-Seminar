@@ -136,11 +136,6 @@ $$Loss=\sum_i{p_{\hat{y}_i}}(\hat{y}_i)+\sum_j{p_{\hat{z}_j}}(\hat{z}_j)+\lambda
   目前的训练结果以及在柯达数据集上的测试结果均正常。
 
 
-
-### 1.4 Checkerboard Autoregressive
-
-
-
 ## 第二部分： 训练/测试过程
 
 ### 2.1 训练过程
