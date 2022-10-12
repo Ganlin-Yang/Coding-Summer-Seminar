@@ -47,7 +47,7 @@ def test(test_dataloader, ckptdir_list, outdir, resultdir, model_name='Factorize
             if idx <= 1:
                 model_ = getattr(model, args.model_name).to(device)
             else:
-                model_ = getattr(model, args.model_name)(N=120, M=320).to(device)
+                model_ = getattr(model, args.model_name)(N=192, M=320).to(device)
             # 部署熵模型到指定的设备
             model_.entropy_bottleneck.to(args.entropy_device)
 
